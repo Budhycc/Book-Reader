@@ -1,0 +1,210 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: Arial, sans-serif;
+  overscroll-behavior: none;
+  overflow: hidden;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  height: 100dvh;
+}
+
+/* ── Toolbar ── */
+.toolbar {
+  background: #2c2c2c;
+  color: white;
+  display: flex;
+  align-items: center;
+  padding: 0 4px;
+  height: 50px;
+  flex-shrink: 0;
+  gap: 2px;
+}
+.t-btn {
+  background: none;
+  border: none;
+  color: white;
+  padding: 10px 11px;
+  font-size: 17px;
+  cursor: pointer;
+  border-radius: 6px;
+  flex-shrink: 0;
+  line-height: 1;
+  -webkit-tap-highlight-color: transparent;
+}
+.t-btn:active {
+  background: rgba(255, 255, 255, 0.18);
+}
+#bookTitle {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: bold;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0 4px;
+}
+#progress {
+  font-size: 12px;
+  opacity: 0.7;
+  white-space: nowrap;
+  flex-shrink: 0;
+  padding-right: 4px;
+}
+
+/* ── Settings drawer ── */
+#toolbarMore {
+  background: #3a3a3a;
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.25s ease;
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+}
+#toolbarMore.open {
+  max-height: 80px;
+  padding: 8px 10px;
+}
+#toolbarMore .t-btn {
+  background: #555;
+  padding: 7px 13px;
+  font-size: 14px;
+  border-radius: 6px;
+}
+#toolbarMore .t-btn:active {
+  background: #666;
+}
+#toolbarMore select {
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: none;
+  font-size: 13px;
+  background: #555;
+  color: white;
+}
+
+/* ── Viewer ── */
+#viewer {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+/* ── Sidebar ── */
+#sidebarBackdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 1000;
+}
+#sidebarBackdrop.open {
+  display: block;
+}
+
+#sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: #fafafa;
+  border-right: 1px solid #ddd;
+  overflow-y: auto;
+  transform: translateX(-100%);
+  transition: transform 0.25s ease;
+  z-index: 1001;
+  padding: 14px;
+  width: min(280px, 100vw);
+}
+#sidebar.open {
+  transform: translateX(0);
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.25);
+}
+@media (min-width: 700px) {
+  #sidebarBackdrop {
+    display: none !important;
+  }
+  #viewer.shift {
+    margin-left: 280px;
+    transition: margin 0.25s;
+  }
+}
+
+#sidebarHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.closeSidebar {
+  cursor: pointer;
+  font-size: 20px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  line-height: 1;
+}
+.closeSidebar:active {
+  background: #eee;
+}
+#toc div {
+  padding: 11px 8px;
+  cursor: pointer;
+  border-radius: 6px;
+  font-size: 14px;
+  line-height: 1.4;
+  border-bottom: 1px solid #eee;
+}
+#toc div:last-child {
+  border-bottom: none;
+}
+#toc div:active {
+  background: #eee;
+}
+
+/* ── Loading screen ── */
+#loadingScreen {
+  position: fixed;
+  inset: 0;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 12px;
+  z-index: 9999;
+  font-size: 15px;
+  color: #555;
+}
+#loadingScreen.hidden {
+  display: none;
+}
+.spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid #ddd;
+  border-top-color: #444;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
