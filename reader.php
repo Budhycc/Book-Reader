@@ -33,6 +33,7 @@ $name = basename($book, ".epub");
     <div class="toolbar">
         <button class="t-btn" onclick="toggleSidebar()">☰</button>
         <a class="t-btn" href="index.php" title="Kembali ke library">🏠</a>
+        <a class="t-btn" id="downloadBtn" title="Download buku">⬇</a>
         <button class="t-btn" onclick="prevPage()">◀</button>
         <button class="t-btn" onclick="nextPage()">▶</button>
         <span id="bookTitle"></span>
@@ -76,6 +77,11 @@ let fontFamily = localStorage.getItem("reader-fontFamily") || "serif"
 let darkMode   = localStorage.getItem("reader-darkMode") === "true"
 
 document.getElementById("fontSelect").value = fontFamily
+
+/* ── DOWNLOAD BUTTON ── */
+const dlBtn = document.getElementById("downloadBtn")
+dlBtn.href = BOOK_URL
+dlBtn.setAttribute("download", BOOK_URL.split("/").pop())
 
 /* ── INIT ── */
 const book      = ePub(BOOK_URL)
@@ -131,14 +137,12 @@ book.ready.then(() => {
         : rendition.display()
 
     doDisplay(last).then(() => {
-        // Hide loading screen once first page is rendered
         document.getElementById("loadingScreen").classList.add("hidden")
-        // Generate locations in background for progress %
         book.locations.generate(2048).then(() => updateProgress())
     })
 })
 
-/* ── SAVE on every page turn (no gating) ── */
+/* ── SAVE on every page turn ── */
 rendition.on("relocated", loc => {
     localStorage.setItem("epub-" + BOOK_URL, loc.start.cfi)
     updateProgress()
