@@ -69,151 +69,192 @@ $name = basename($book, ".epub");
 </div>
 
 <script>
-const BOOK_URL = <?= json_encode($book) ?>
+const BOOK_URL = <?= json_encode($book) ?>;
+
+/* ── CUSTOM REQUEST FUNCTION (DENGAN PARAMETER BOOK YANG BENAR) ── */
+const customRequest = (url, type) => {
+    // Tampilkan log untuk debugging (bisa dihapus jika sudah stabil)
+    console.log('Requesting:', url, 'type:', type);
+    // Perbaiki: tambahkan parameter 'book=' di query string
+    const endpoint = `get-epub-part.php?book=${encodeURIComponent(BOOK_URL)}&file=${encodeURIComponent(url)}`;
+    return fetch(endpoint)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status} - ${response.statusText}`);
+            }
+            // Baca response berdasarkan tipe yang diminta
+            if (type === 'xml') {
+                return response.text().then(str => {
+                    // Ubah string XML menjadi dokumen XML
+                    return new DOMParser().parseFromString(str, 'application/xml');
+                });
+            } else if (type === 'json') {
+                return response.json();
+            } else if (type === 'blob') {
+                return response.blob();
+            } else {
+                // default: teks biasa
+                return response.text();
+            }
+        })
+        .catch(error => {
+            console.error('Custom request failed:', error);
+            throw error;
+        });
+};
 
 /* ── SETTINGS ── */
-let fontSize   = parseInt(localStorage.getItem("reader-fontSize"))  || 100
-let fontFamily = localStorage.getItem("reader-fontFamily") || "serif"
-let darkMode   = localStorage.getItem("reader-darkMode") === "true"
+let fontSize   = parseInt(localStorage.getItem("reader-fontSize"))  || 100;
+let fontFamily = localStorage.getItem("reader-fontFamily") || "serif";
+let darkMode   = localStorage.getItem("reader-darkMode") === "true";
 
-document.getElementById("fontSelect").value = fontFamily
+document.getElementById("fontSelect").value = fontFamily;
 
 /* ── DOWNLOAD BUTTON ── */
-const dlBtn = document.getElementById("downloadBtn")
-dlBtn.href = BOOK_URL
-dlBtn.setAttribute("download", BOOK_URL.split("/").pop())
+const dlBtn = document.getElementById("downloadBtn");
+dlBtn.href = BOOK_URL;
+dlBtn.setAttribute("download", BOOK_URL.split("/").pop());
 
 /* ── INIT ── */
-const book      = ePub(BOOK_URL)
+// Gunakan object konfigurasi dengan properti 'request'
+const book = ePub(BOOK_URL, { request: customRequest });
 const rendition = book.renderTo("viewer", {
     width: "100%", height: "100%",
-    spread: "none", flow: "paginated"
-})
+    spread: "none", flow: "paginated",
+    sandbox: 'allow-same-origin allow-scripts'
+});
 
-applySettings()
+applySettings();
 
 /* ── TITLE ── */
 book.loaded.metadata.then(m => {
-    document.getElementById("bookTitle").innerText = m.title || <?= json_encode($name) ?>
-})
+    document.getElementById("bookTitle").innerText = m.title || <?= json_encode($name) ?>;
+}).catch(err => console.error('Metadata error:', err));
 
 /* ── TOC ── */
 book.loaded.navigation.then(toc => {
-    const frag = document.createDocumentFragment()
+    const frag = document.createDocumentFragment();
     toc.forEach(ch => {
-        const d = document.createElement("div")
-        d.textContent = ch.label
-        d.onclick = () => { rendition.display(ch.href); closeSidebar() }
-        frag.appendChild(d)
-    })
-    document.getElementById("toc").replaceChildren(frag)
-})
+        const d = document.createElement("div");
+        d.textContent = ch.label;
+        d.onclick = () => { rendition.display(ch.href).catch(e => console.error(e)); closeSidebar(); };
+        frag.appendChild(d);
+    });
+    document.getElementById("toc").replaceChildren(frag);
+}).catch(err => console.error('TOC error:', err));
 
 /* ── SWIPE (attach inside iframe after each render) ── */
 rendition.on("rendered", (section, view) => {
-    try { view.window.addEventListener("keydown", handleKey) } catch {}
-    const doc = view.document
-    if (!doc) return
-    let tx = 0, ty = 0
+    try { view.window.addEventListener("keydown", handleKey); } catch {}
+    const doc = view.document;
+    if (!doc) return;
+    let tx = 0, ty = 0;
     doc.addEventListener("touchstart", e => {
-        tx = e.touches[0].clientX
-        ty = e.touches[0].clientY
-    }, { passive: true })
+        tx = e.touches[0].clientX;
+        ty = e.touches[0].clientY;
+    }, { passive: true });
     doc.addEventListener("touchend", e => {
-        const dx = e.changedTouches[0].clientX - tx
-        const dy = e.changedTouches[0].clientY - ty
+        const dx = e.changedTouches[0].clientX - tx;
+        const dy = e.changedTouches[0].clientY - ty;
         if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.2) {
-            dx < 0 ? rendition.next() : rendition.prev()
+            dx < 0 ? rendition.next() : rendition.prev();
         }
-    }, { passive: true })
-})
+    }, { passive: true });
+});
 
 /* ── DISPLAY + RESTORE ── */
-book.ready.then(() => {
-    const last = localStorage.getItem("epub-" + BOOK_URL)
-
-    const doDisplay = cfi => cfi
-        ? rendition.display(cfi).catch(() => rendition.display())
-        : rendition.display()
-
-    doDisplay(last).then(() => {
-        document.getElementById("loadingScreen").classList.add("hidden")
-        book.locations.generate(2048).then(() => updateProgress())
+book.ready
+    .then(() => {
+        const last = localStorage.getItem("epub-" + BOOK_URL);
+        const displayPromise = last ? rendition.display(last) : rendition.display();
+        return displayPromise;
     })
-})
+    .then(() => {
+        // Sembunyikan loading setelah buku tampil
+        document.getElementById("loadingScreen").classList.add("hidden");
+        // Generate locations untuk progress bar
+        return book.locations.generate(2048);
+    })
+    .then(() => updateProgress())
+    .catch(err => {
+        console.error('Display error:', err);
+        // Tetap sembunyikan loading agar tidak stuck
+        document.getElementById("loadingScreen").classList.add("hidden");
+        alert('Gagal membuka buku: ' + err.message);
+    });
 
 /* ── SAVE on every page turn ── */
 rendition.on("relocated", loc => {
-    localStorage.setItem("epub-" + BOOK_URL, loc.start.cfi)
-    updateProgress()
-})
+    localStorage.setItem("epub-" + BOOK_URL, loc.start.cfi);
+    updateProgress();
+});
 
 function updateProgress() {
     try {
-        const loc = rendition.currentLocation()
+        const loc = rendition.currentLocation();
         if (loc?.start && book.locations?.percentageFromCfi) {
-            const pct = Math.floor(book.locations.percentageFromCfi(loc.start.cfi) * 100)
-            document.getElementById("progress").innerText = pct + "%"
+            const pct = Math.floor(book.locations.percentageFromCfi(loc.start.cfi) * 100);
+            document.getElementById("progress").innerText = pct + "%";
         }
     } catch {}
 }
 
 /* ── SETTINGS ── */
 function applySettings() {
-    rendition.themes.fontSize(fontSize + "%")
-    rendition.themes.font(fontFamily)
-    rendition.themes.override("background", darkMode ? "#111" : "#fff")
-    rendition.themes.override("color",      darkMode ? "#eee" : "#000")
+    rendition.themes.fontSize(fontSize + "%");
+    rendition.themes.font(fontFamily);
+    rendition.themes.override("background", darkMode ? "#111" : "#fff");
+    rendition.themes.override("color",      darkMode ? "#eee" : "#000");
 }
-function biggerText()  { setFontSize(fontSize + 10) }
-function smallerText() { setFontSize(fontSize - 10) }
-function resetFont()   { setFontSize(100) }
+function biggerText()  { setFontSize(fontSize + 10); }
+function smallerText() { setFontSize(fontSize - 10); }
+function resetFont()   { setFontSize(100); }
 function setFontSize(s) {
-    fontSize = Math.max(70, s)
-    rendition.themes.fontSize(fontSize + "%")
-    localStorage.setItem("reader-fontSize", fontSize)
+    fontSize = Math.max(70, s);
+    rendition.themes.fontSize(fontSize + "%");
+    localStorage.setItem("reader-fontSize", fontSize);
 }
 function changeFont(f) {
-    fontFamily = f
-    rendition.themes.font(f)
-    localStorage.setItem("reader-fontFamily", f)
+    fontFamily = f;
+    rendition.themes.font(f);
+    localStorage.setItem("reader-fontFamily", f);
 }
 function toggleTheme() {
-    darkMode = !darkMode
-    localStorage.setItem("reader-darkMode", darkMode)
-    applySettings()
+    darkMode = !darkMode;
+    localStorage.setItem("reader-darkMode", darkMode);
+    applySettings();
 }
 
 /* ── TOOLBAR MORE ── */
 function toggleMore() {
-    document.getElementById("toolbarMore").classList.toggle("open")
+    document.getElementById("toolbarMore").classList.toggle("open");
 }
 
 /* ── SIDEBAR ── */
 function toggleSidebar() {
-    const isOpen = document.getElementById("sidebar").classList.toggle("open")
-    document.getElementById("sidebarBackdrop").classList.toggle("open", isOpen)
+    const isOpen = document.getElementById("sidebar").classList.toggle("open");
+    document.getElementById("sidebarBackdrop").classList.toggle("open", isOpen);
     if (window.innerWidth >= 700)
-        document.getElementById("viewer").classList.toggle("shift", isOpen)
+        document.getElementById("viewer").classList.toggle("shift", isOpen);
 }
 function closeSidebar() {
-    document.getElementById("sidebar").classList.remove("open")
-    document.getElementById("sidebarBackdrop").classList.remove("open")
-    document.getElementById("viewer").classList.remove("shift")
+    document.getElementById("sidebar").classList.remove("open");
+    document.getElementById("sidebarBackdrop").classList.remove("open");
+    document.getElementById("viewer").classList.remove("shift");
 }
 
 /* ── NAVIGATION ── */
-function prevPage() { rendition.prev() }
-function nextPage() { rendition.next() }
+function prevPage() { rendition.prev(); }
+function nextPage() { rendition.next(); }
 
 /* ── KEYBOARD ── */
 function handleKey(e) {
-    if (!rendition) return
-    if (["ArrowRight","ArrowDown"," "].includes(e.key))  { e.preventDefault(); rendition.next() }
-    else if (["ArrowLeft","ArrowUp"].includes(e.key))    { e.preventDefault(); rendition.prev() }
-    else if (e.key === "Escape")                         { window.location.href = "index.php" }
+    if (!rendition) return;
+    if (["ArrowRight","ArrowDown"," "].includes(e.key))  { e.preventDefault(); rendition.next(); }
+    else if (["ArrowLeft","ArrowUp"].includes(e.key))    { e.preventDefault(); rendition.prev(); }
+    else if (e.key === "Escape")                         { window.location.href = "index.php"; }
 }
-window.addEventListener("keydown", handleKey)
+window.addEventListener("keydown", handleKey);
 </script>
 </body>
 </html>
