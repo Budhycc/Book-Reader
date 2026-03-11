@@ -1,13 +1,9 @@
 <?php
-// Validate and sanitize the book path
 $book = isset($_GET['book']) ? $_GET['book'] : '';
-
-// Security: only allow files inside books/ directory with .epub extension
 if (!preg_match('/^books\/[^\/]+\.epub$/', $book) || !file_exists($book)) {
     http_response_code(404);
     exit('Book not found.');
 }
-
 $name = basename($book, ".epub");
 ?>
 <!DOCTYPE html>
@@ -22,91 +18,157 @@ $name = basename($book, ".epub");
 </head>
 <body>
 
-<!-- Loading screen shown until book renders -->
 <div id="loadingScreen">
     <div class="spinner"></div>
     <div>Membuka buku...</div>
 </div>
 
+<!-- Brightness overlay -->
+<div id="brightnessOverlay"></div>
+
+<!-- Search overlay -->
+<div id="searchOverlay" class="overlay-panel">
+    <div class="overlay-header">
+        <span>🔍 Cari Teks</span>
+        <button onclick="closeSearch()">✕</button>
+    </div>
+    <div class="search-input-wrap">
+        <input type="text" id="searchInput" placeholder="Ketik kata/frasa..." oninput="doSearch()">
+        <span id="searchCount"></span>
+    </div>
+    <div id="searchResults"></div>
+</div>
+
+<!-- Bookmark overlay -->
+<div id="bookmarkOverlay" class="overlay-panel">
+    <div class="overlay-header">
+        <span>🔖 Bookmark</span>
+        <button onclick="closeBookmarks()">✕</button>
+    </div>
+    <div id="bookmarkList"></div>
+    <div id="bookmarkEmpty" style="display:none">Belum ada bookmark.</div>
+</div>
+
+<!-- Stats overlay -->
+<div id="statsOverlay" class="overlay-panel">
+    <div class="overlay-header">
+        <span>📊 Statistik Baca</span>
+        <button onclick="closeStats()">✕</button>
+    </div>
+    <div id="statsContent"></div>
+</div>
+
 <div id="app">
 
-    <div class="toolbar">
-        <button class="t-btn" onclick="toggleSidebar()">☰</button>
-        <a class="t-btn" href="index.php" title="Kembali ke library">🏠</a>
-        <a class="t-btn" id="downloadBtn" title="Download buku">⬇</a>
-        <button class="t-btn" onclick="prevPage()">◀</button>
-        <button class="t-btn" onclick="nextPage()">▶</button>
+    <!-- Main toolbar -->
+    <div class="toolbar" id="toolbar">
+        <button class="t-btn" onclick="toggleSidebar()" title="Chapters">☰</button>
+        <a class="t-btn" href="index.php" title="Library">🏠</a>
+        <button class="t-btn" onclick="prevPage()" title="Sebelumnya">◀</button>
+        <button class="t-btn" onclick="nextPage()" title="Berikutnya">▶</button>
         <span id="bookTitle"></span>
         <span id="progress"></span>
-        <button class="t-btn" onclick="toggleMore()">⚙</button>
+        <button class="t-btn" onclick="toggleBookmarkCurrent()" id="bmBtn" title="Bookmark halaman ini">🔖</button>
+        <button class="t-btn" onclick="openSearch()" title="Cari teks">🔍</button>
+        <button class="t-btn" onclick="toggleSettings()" title="Pengaturan">⚙</button>
     </div>
 
-    <div id="toolbarMore">
-        <button class="t-btn" onclick="smallerText()">A−</button>
-        <button class="t-btn" onclick="biggerText()">A+</button>
-        <button class="t-btn" onclick="resetFont()">↺</button>
-        <select id="fontSelect" onchange="changeFont(this.value)">
-            <option value="serif">Serif</option>
-            <option value="sans-serif">Sans</option>
-            <option value="Georgia">Georgia</option>
-            <option value="Times New Roman">Times</option>
-        </select>
-        <button class="t-btn" onclick="toggleTheme()">🌙</button>
+    <!-- Progress bar -->
+    <div id="progressBar">
+        <div id="progressFill"></div>
+        <div id="etaLabel"></div>
+    </div>
+
+    <!-- Settings drawer -->
+    <div id="settingsDrawer">
+        <div class="settings-row">
+            <label>Ukuran</label>
+            <div class="btn-group">
+                <button class="t-btn" onclick="smallerText()">A−</button>
+                <button class="t-btn" onclick="biggerText()">A+</button>
+                <button class="t-btn" onclick="resetFont()">↺</button>
+            </div>
+        </div>
+        <div class="settings-row">
+            <label>Font</label>
+            <select id="fontSelect" onchange="changeFont(this.value)">
+                <option value="serif">Serif</option>
+                <option value="sans-serif">Sans</option>
+                <option value="Georgia">Georgia</option>
+                <option value="Times New Roman">Times</option>
+            </select>
+        </div>
+        <div class="settings-row">
+            <label>Tema</label>
+            <div class="btn-group theme-btns">
+                <button class="theme-btn" data-theme="light" onclick="setTheme('light')">☀ Terang</button>
+                <button class="theme-btn" data-theme="sepia" onclick="setTheme('sepia')">📜 Sepia</button>
+                <button class="theme-btn" data-theme="dark" onclick="setTheme('dark')">🌙 Gelap</button>
+            </div>
+        </div>
+        <div class="settings-row">
+            <label>Mode</label>
+            <div class="btn-group">
+                <button class="t-btn" id="flowBtn" onclick="toggleFlow()">📄 Scroll</button>
+                <a class="t-btn" id="downloadBtn" title="Download">⬇ Unduh</a>
+            </div>
+        </div>
+        <div class="settings-row">
+            <label>Redup</label>
+            <input type="range" id="brightnessSlider" min="0" max="80" value="0" oninput="setBrightness(this.value)">
+        </div>
+        <div class="settings-row actions-row">
+            <button class="action-btn" onclick="openBookmarks()">🔖 Bookmark</button>
+            <button class="action-btn" onclick="openStats()">📊 Statistik</button>
+        </div>
     </div>
 
     <div id="viewer"></div>
 
 </div>
 
-<!-- Sidebar (outside #app so it overlays correctly) -->
+<!-- Sidebar -->
 <div id="sidebarBackdrop" onclick="closeSidebar()"></div>
 <div id="sidebar">
     <div id="sidebarHeader">
-        <b>📑 Chapters</b>
-        <span class="closeSidebar" onclick="closeSidebar()">✕</span>
+        <span>📑 Chapters</span>
+        <button onclick="closeSidebar()">✕</button>
     </div>
     <div id="toc"></div>
 </div>
 
+<!-- Toast notification -->
+<div id="toast"></div>
+
 <script>
 const BOOK_URL = <?= json_encode($book) ?>;
+const BOOK_KEY = "epub-" + BOOK_URL;
 
-/* ── CUSTOM REQUEST FUNCTION (DENGAN PARAMETER BOOK YANG BENAR) ── */
+/* ── CUSTOM REQUEST ── */
 const customRequest = (url, type) => {
-    // Tampilkan log untuk debugging (bisa dihapus jika sudah stabil)
-    console.log('Requesting:', url, 'type:', type);
-    // Perbaiki: tambahkan parameter 'book=' di query string
     const endpoint = `get-epub-part.php?book=${encodeURIComponent(BOOK_URL)}&file=${encodeURIComponent(url)}`;
-    return fetch(endpoint)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status} - ${response.statusText}`);
-            }
-            // Baca response berdasarkan tipe yang diminta
-            if (type === 'xml') {
-                return response.text().then(str => {
-                    // Ubah string XML menjadi dokumen XML
-                    return new DOMParser().parseFromString(str, 'application/xml');
-                });
-            } else if (type === 'json') {
-                return response.json();
-            } else if (type === 'blob') {
-                return response.blob();
-            } else {
-                // default: teks biasa
-                return response.text();
-            }
-        })
-        .catch(error => {
-            console.error('Custom request failed:', error);
-            throw error;
-        });
+    return fetch(endpoint).then(response => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        if (type === 'xml') return response.text().then(str => new DOMParser().parseFromString(str, 'application/xml'));
+        if (type === 'json') return response.json();
+        if (type === 'blob') return response.blob();
+        return response.text();
+    });
 };
 
-/* ── SETTINGS ── */
-let fontSize   = parseInt(localStorage.getItem("reader-fontSize"))  || 100;
+/* ── SETTINGS STATE ── */
+let fontSize   = parseInt(localStorage.getItem("reader-fontSize")) || 100;
 let fontFamily = localStorage.getItem("reader-fontFamily") || "serif";
-let darkMode   = localStorage.getItem("reader-darkMode") === "true";
+let theme      = localStorage.getItem("reader-theme") || "light";
+let flowMode   = localStorage.getItem("reader-flow") || "paginated";
+let currentPct = 0;
+
+/* ── THEME CONFIGS ── */
+const THEMES = {
+    light: { bg: "#ffffff", color: "#1a1a1a" },
+    sepia: { bg: "#f4ecd8", color: "#3b2f1e" },
+    dark:  { bg: "#111111", color: "#e8e0d5" }
+};
 
 document.getElementById("fontSelect").value = fontFamily;
 
@@ -115,21 +177,22 @@ const dlBtn = document.getElementById("downloadBtn");
 dlBtn.href = BOOK_URL;
 dlBtn.setAttribute("download", BOOK_URL.split("/").pop());
 
-/* ── INIT ── */
-// Gunakan object konfigurasi dengan properti 'request'
+/* ── EPUB INIT ── */
 const book = ePub(BOOK_URL, { request: customRequest });
 const rendition = book.renderTo("viewer", {
     width: "100%", height: "100%",
-    spread: "none", flow: "paginated",
+    spread: "none", flow: flowMode,
     sandbox: 'allow-same-origin allow-scripts'
 });
 
 applySettings();
+updateFlowBtn();
+updateThemeBtns();
 
 /* ── TITLE ── */
 book.loaded.metadata.then(m => {
     document.getElementById("bookTitle").innerText = m.title || <?= json_encode($name) ?>;
-}).catch(err => console.error('Metadata error:', err));
+}).catch(() => {});
 
 /* ── TOC ── */
 book.loaded.navigation.then(toc => {
@@ -137,80 +200,98 @@ book.loaded.navigation.then(toc => {
     toc.forEach(ch => {
         const d = document.createElement("div");
         d.textContent = ch.label;
-        d.onclick = () => { rendition.display(ch.href).catch(e => console.error(e)); closeSidebar(); };
+        d.onclick = () => { rendition.display(ch.href).catch(() => {}); closeSidebar(); };
         frag.appendChild(d);
     });
     document.getElementById("toc").replaceChildren(frag);
-}).catch(err => console.error('TOC error:', err));
+}).catch(() => {});
 
-/* ── SWIPE (attach inside iframe after each render) ── */
+/* ── SWIPE ── */
 rendition.on("rendered", (section, view) => {
     try { view.window.addEventListener("keydown", handleKey); } catch {}
     const doc = view.document;
     if (!doc) return;
     let tx = 0, ty = 0;
-    doc.addEventListener("touchstart", e => {
-        tx = e.touches[0].clientX;
-        ty = e.touches[0].clientY;
-    }, { passive: true });
+    doc.addEventListener("touchstart", e => { tx = e.touches[0].clientX; ty = e.touches[0].clientY; }, { passive: true });
     doc.addEventListener("touchend", e => {
         const dx = e.changedTouches[0].clientX - tx;
         const dy = e.changedTouches[0].clientY - ty;
-        if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.2) {
-            dx < 0 ? rendition.next() : rendition.prev();
-        }
+        if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.2) dx < 0 ? rendition.next() : rendition.prev();
     }, { passive: true });
+    // Tap tengah layar: toggle toolbar (auto-hide)
+    doc.addEventListener("click", e => {
+        const w = doc.documentElement.clientWidth;
+        if (e.clientX > w * 0.3 && e.clientX < w * 0.7) toggleToolbarVisibility();
+    });
 });
 
 /* ── DISPLAY + RESTORE ── */
 book.ready
     .then(() => {
-        const last = localStorage.getItem("epub-" + BOOK_URL);
-        const displayPromise = last ? rendition.display(last) : rendition.display();
-        return displayPromise;
+        const last = localStorage.getItem(BOOK_KEY);
+        return last ? rendition.display(last) : rendition.display();
     })
     .then(() => {
-        // Sembunyikan loading setelah buku tampil
         document.getElementById("loadingScreen").classList.add("hidden");
-        // Generate locations untuk progress bar
         return book.locations.generate(2048);
     })
     .then(() => updateProgress())
     .catch(err => {
-        console.error('Display error:', err);
-        // Tetap sembunyikan loading agar tidak stuck
         document.getElementById("loadingScreen").classList.add("hidden");
         alert('Gagal membuka buku: ' + err.message);
     });
 
-/* ── SAVE on every page turn ── */
+/* ── RELOCATED ── */
 rendition.on("relocated", loc => {
-    localStorage.setItem("epub-" + BOOK_URL, loc.start.cfi);
+    localStorage.setItem(BOOK_KEY, loc.start.cfi);
     updateProgress();
+    updateBookmarkBtn();
+    trackReadingTime();
 });
 
+/* ────────────────────────────────────────────
+   PROGRESS BAR + ETA
+──────────────────────────────────────────── */
 function updateProgress() {
     try {
         const loc = rendition.currentLocation();
         if (loc?.start && book.locations?.percentageFromCfi) {
             const pct = Math.floor(book.locations.percentageFromCfi(loc.start.cfi) * 100);
+            currentPct = pct;
             document.getElementById("progress").innerText = pct + "%";
+            document.getElementById("progressFill").style.width = pct + "%";
+            // ETA: asumsi rata2 250 kata/menit, estimasi sisa
+            const remaining = 100 - pct;
+            // estimasi kasar: 1% ≈ 2 menit untuk buku 500 hal
+            const estMin = Math.round(remaining * 1.8);
+            if (estMin > 0) {
+                document.getElementById("etaLabel").innerText =
+                    estMin >= 60 ? `±${Math.floor(estMin/60)}j ${estMin%60}m` : `±${estMin} mnt tersisa`;
+            } else {
+                document.getElementById("etaLabel").innerText = "Hampir selesai!";
+            }
         }
     } catch {}
 }
 
-/* ── SETTINGS ── */
+/* ────────────────────────────────────────────
+   SETTINGS APPLY
+──────────────────────────────────────────── */
 function applySettings() {
+    const t = THEMES[theme] || THEMES.light;
     rendition.themes.fontSize(fontSize + "%");
     rendition.themes.font(fontFamily);
-    rendition.themes.override("background", darkMode ? "#111" : "#fff");
-    rendition.themes.override("color",      darkMode ? "#eee" : "#000");
+    rendition.themes.override("background", t.bg);
+    rendition.themes.override("color", t.color);
+    // body bg sesuai tema
+    document.body.setAttribute("data-theme", theme);
 }
+
 function biggerText()  { setFontSize(fontSize + 10); }
 function smallerText() { setFontSize(fontSize - 10); }
 function resetFont()   { setFontSize(100); }
 function setFontSize(s) {
-    fontSize = Math.max(70, s);
+    fontSize = Math.max(70, Math.min(200, s));
     rendition.themes.fontSize(fontSize + "%");
     localStorage.setItem("reader-fontSize", fontSize);
 }
@@ -219,18 +300,82 @@ function changeFont(f) {
     rendition.themes.font(f);
     localStorage.setItem("reader-fontFamily", f);
 }
-function toggleTheme() {
-    darkMode = !darkMode;
-    localStorage.setItem("reader-darkMode", darkMode);
+
+/* ────────────────────────────────────────────
+   THEME (light / sepia / dark)
+──────────────────────────────────────────── */
+function setTheme(t) {
+    theme = t;
+    localStorage.setItem("reader-theme", t);
     applySettings();
+    updateThemeBtns();
+}
+function updateThemeBtns() {
+    document.querySelectorAll(".theme-btn").forEach(b => {
+        b.classList.toggle("active", b.dataset.theme === theme);
+    });
 }
 
-/* ── TOOLBAR MORE ── */
-function toggleMore() {
-    document.getElementById("toolbarMore").classList.toggle("open");
+/* ────────────────────────────────────────────
+   FLOW MODE (paginated ↔ scroll)
+──────────────────────────────────────────── */
+function toggleFlow() {
+    flowMode = flowMode === "paginated" ? "scrolled-doc" : "paginated";
+    localStorage.setItem("reader-flow", flowMode);
+    // Harus re-render
+    const loc = rendition.currentLocation();
+    const cfi = loc?.start?.cfi;
+    rendition.flow(flowMode);
+    if (cfi) rendition.display(cfi).catch(() => {});
+    updateFlowBtn();
+}
+function updateFlowBtn() {
+    const btn = document.getElementById("flowBtn");
+    btn.textContent = flowMode === "paginated" ? "📄 Scroll" : "📖 Halaman";
 }
 
-/* ── SIDEBAR ── */
+/* ────────────────────────────────────────────
+   BRIGHTNESS OVERLAY
+──────────────────────────────────────────── */
+function setBrightness(val) {
+    const alpha = val / 100;
+    document.getElementById("brightnessOverlay").style.opacity = alpha;
+}
+
+/* ────────────────────────────────────────────
+   AUTO-HIDE TOOLBAR
+──────────────────────────────────────────── */
+let toolbarVisible = true;
+let toolbarTimeout = null;
+function toggleToolbarVisibility() {
+    toolbarVisible = !toolbarVisible;
+    const toolbar = document.getElementById("toolbar");
+    const pb = document.getElementById("progressBar");
+    toolbar.classList.toggle("hidden", !toolbarVisible);
+    pb.classList.toggle("toolbar-hidden", !toolbarVisible);
+}
+// Auto-hide setelah 4 detik idle saat settings tertutup
+function resetToolbarTimer() {
+    clearTimeout(toolbarTimeout);
+    if (!document.getElementById("settingsDrawer").classList.contains("open")) {
+        toolbarTimeout = setTimeout(() => {
+            if (toolbarVisible) toggleToolbarVisibility();
+        }, 5000);
+    }
+}
+document.getElementById("viewer").addEventListener("touchstart", resetToolbarTimer, { passive: true });
+
+/* ────────────────────────────────────────────
+   SETTINGS DRAWER
+──────────────────────────────────────────── */
+function toggleSettings() {
+    document.getElementById("settingsDrawer").classList.toggle("open");
+    clearTimeout(toolbarTimeout);
+}
+
+/* ────────────────────────────────────────────
+   SIDEBAR / TOC
+──────────────────────────────────────────── */
 function toggleSidebar() {
     const isOpen = document.getElementById("sidebar").classList.toggle("open");
     document.getElementById("sidebarBackdrop").classList.toggle("open", isOpen);
@@ -243,18 +388,214 @@ function closeSidebar() {
     document.getElementById("viewer").classList.remove("shift");
 }
 
-/* ── NAVIGATION ── */
+/* ────────────────────────────────────────────
+   BOOKMARK
+──────────────────────────────────────────── */
+function getBookmarks() {
+    try { return JSON.parse(localStorage.getItem("bm-" + BOOK_URL) || "[]"); } catch { return []; }
+}
+function saveBookmarks(bms) {
+    localStorage.setItem("bm-" + BOOK_URL, JSON.stringify(bms));
+}
+function toggleBookmarkCurrent() {
+    const loc = rendition.currentLocation();
+    if (!loc?.start?.cfi) return;
+    const cfi = loc.start.cfi;
+    let bms = getBookmarks();
+    const idx = bms.findIndex(b => b.cfi === cfi);
+    if (idx >= 0) {
+        bms.splice(idx, 1);
+        showToast("Bookmark dihapus");
+    } else {
+        bms.push({ cfi, pct: currentPct, label: `Hal. ${currentPct}%`, time: Date.now() });
+        showToast("Bookmark ditambahkan 🔖");
+    }
+    saveBookmarks(bms);
+    updateBookmarkBtn();
+}
+function updateBookmarkBtn() {
+    const loc = rendition.currentLocation();
+    if (!loc?.start?.cfi) return;
+    const cfi = loc.start.cfi;
+    const bms = getBookmarks();
+    document.getElementById("bmBtn").classList.toggle("active-btn", bms.some(b => b.cfi === cfi));
+}
+function openBookmarks() {
+    closeSettings();
+    const bms = getBookmarks();
+    const list = document.getElementById("bookmarkList");
+    const empty = document.getElementById("bookmarkEmpty");
+    list.innerHTML = "";
+    if (bms.length === 0) { empty.style.display = ""; }
+    else {
+        empty.style.display = "none";
+        bms.sort((a,b) => a.pct - b.pct).forEach(bm => {
+            const d = document.createElement("div");
+            d.className = "bm-item";
+            const date = new Date(bm.time).toLocaleDateString("id-ID");
+            d.innerHTML = `<span onclick="jumpToCfi('${bm.cfi}')">📖 ${bm.pct}% &mdash; <small>${date}</small></span>
+                           <button onclick="deleteBookmark('${bm.cfi}')">🗑</button>`;
+            list.appendChild(d);
+        });
+    }
+    document.getElementById("bookmarkOverlay").classList.add("open");
+}
+function closeBookmarks() { document.getElementById("bookmarkOverlay").classList.remove("open"); }
+function deleteBookmark(cfi) {
+    let bms = getBookmarks().filter(b => b.cfi !== cfi);
+    saveBookmarks(bms);
+    openBookmarks();
+    updateBookmarkBtn();
+}
+function jumpToCfi(cfi) {
+    rendition.display(cfi).catch(() => {});
+    closeBookmarks();
+    closeSearch();
+}
+function closeSettings() {
+    document.getElementById("settingsDrawer").classList.remove("open");
+}
+
+/* ────────────────────────────────────────────
+   SEARCH
+──────────────────────────────────────────── */
+let searchDebounce = null;
+function openSearch() {
+    closeSettings();
+    document.getElementById("searchOverlay").classList.add("open");
+    setTimeout(() => document.getElementById("searchInput").focus(), 100);
+}
+function closeSearch() { document.getElementById("searchOverlay").classList.remove("open"); }
+function doSearch() {
+    clearTimeout(searchDebounce);
+    searchDebounce = setTimeout(async () => {
+        const q = document.getElementById("searchInput").value.trim();
+        const resultsEl = document.getElementById("searchResults");
+        const countEl   = document.getElementById("searchCount");
+        if (q.length < 2) { resultsEl.innerHTML = ""; countEl.textContent = ""; return; }
+        resultsEl.innerHTML = '<div class="search-loading">Mencari...</div>';
+        try {
+            const results = await book.search(q);
+            countEl.textContent = results.length ? `${results.length} hasil` : "Tidak ditemukan";
+            if (!results.length) { resultsEl.innerHTML = '<div class="search-loading">Tidak ditemukan.</div>'; return; }
+            resultsEl.innerHTML = "";
+            results.slice(0, 50).forEach(r => {
+                const d = document.createElement("div");
+                d.className = "search-item";
+                const excerpt = r.excerpt.replace(new RegExp(q, "gi"), m => `<mark>${m}</mark>`);
+                d.innerHTML = `<p>${excerpt}</p>`;
+                d.onclick = () => { rendition.display(r.cfi).catch(() => {}); closeSearch(); };
+                resultsEl.appendChild(d);
+            });
+        } catch(e) {
+            resultsEl.innerHTML = '<div class="search-loading">Gagal mencari.</div>';
+        }
+    }, 400);
+}
+
+/* ────────────────────────────────────────────
+   READING STATS
+──────────────────────────────────────────── */
+let sessionStart = Date.now();
+let sessionPages = 0;
+function trackReadingTime() {
+    sessionPages++;
+    const today = new Date().toISOString().slice(0,10);
+    const statsKey = "stats-" + BOOK_URL;
+    let stats = {};
+    try { stats = JSON.parse(localStorage.getItem(statsKey) || "{}"); } catch {}
+    if (!stats[today]) stats[today] = { minutes: 0, pages: 0 };
+    // Tambah 1 menit per 3 halaman (estimasi kasar)
+    if (sessionPages % 3 === 0) stats[today].minutes++;
+    stats[today].pages++;
+    localStorage.setItem(statsKey, JSON.stringify(stats));
+}
+function openStats() {
+    closeSettings();
+    const statsKey = "stats-" + BOOK_URL;
+    let stats = {};
+    try { stats = JSON.parse(localStorage.getItem(statsKey) || "{}"); } catch {}
+    const keys = Object.keys(stats).sort().reverse();
+    const totalPages = keys.reduce((s,k) => s + (stats[k].pages||0), 0);
+    const totalMin   = keys.reduce((s,k) => s + (stats[k].minutes||0), 0);
+    const streak     = calcStreak(keys);
+    let html = `
+        <div class="stat-card">
+            <div class="stat-num">${currentPct}%</div>
+            <div class="stat-lbl">Progress buku</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-num">${totalPages}</div>
+            <div class="stat-lbl">Halaman dibaca</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-num">${totalMin >= 60 ? Math.floor(totalMin/60)+"j "+totalMin%60+"m" : totalMin+"m"}</div>
+            <div class="stat-lbl">Total waktu</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-num">${streak} 🔥</div>
+            <div class="stat-lbl">Hari berturut</div>
+        </div>
+        <h4 style="margin:16px 0 8px;font-size:13px;color:var(--muted)">RIWAYAT 7 HARI</h4>
+    `;
+    const today = new Date().toISOString().slice(0,10);
+    for (let i = 0; i < 7; i++) {
+        const d = new Date(); d.setDate(d.getDate() - i);
+        const dk = d.toISOString().slice(0,10);
+        const s = stats[dk] || { pages: 0, minutes: 0 };
+        const label = dk === today ? "Hari ini" : d.toLocaleDateString("id-ID", {weekday:"short", day:"numeric", month:"short"});
+        const barW = Math.min(100, s.pages * 5);
+        html += `<div class="stat-day">
+            <span class="stat-day-lbl">${label}</span>
+            <div class="stat-bar-wrap"><div class="stat-bar" style="width:${barW}%"></div></div>
+            <span class="stat-day-val">${s.pages}p</span>
+        </div>`;
+    }
+    document.getElementById("statsContent").innerHTML = html;
+    document.getElementById("statsOverlay").classList.add("open");
+}
+function closeStats() { document.getElementById("statsOverlay").classList.remove("open"); }
+function calcStreak(sortedDays) {
+    if (!sortedDays.length) return 0;
+    let streak = 0;
+    const today = new Date().toISOString().slice(0,10);
+    let cur = new Date(today);
+    for (const dk of [...sortedDays].sort().reverse()) {
+        const expected = cur.toISOString().slice(0,10);
+        if (dk === expected) { streak++; cur.setDate(cur.getDate()-1); }
+        else break;
+    }
+    return streak;
+}
+
+/* ────────────────────────────────────────────
+   NAVIGATION
+──────────────────────────────────────────── */
 function prevPage() { rendition.prev(); }
 function nextPage() { rendition.next(); }
 
 /* ── KEYBOARD ── */
 function handleKey(e) {
     if (!rendition) return;
-    if (["ArrowRight","ArrowDown"," "].includes(e.key))  { e.preventDefault(); rendition.next(); }
-    else if (["ArrowLeft","ArrowUp"].includes(e.key))    { e.preventDefault(); rendition.prev(); }
-    else if (e.key === "Escape")                         { window.location.href = "index.php"; }
+    if (["ArrowRight","ArrowDown"," "].includes(e.key)) { e.preventDefault(); rendition.next(); }
+    else if (["ArrowLeft","ArrowUp"].includes(e.key))   { e.preventDefault(); rendition.prev(); }
+    else if (e.key === "Escape") window.location.href = "index.php";
+    else if (e.key === "f" || e.key === "F") openSearch();
+    else if (e.key === "b" || e.key === "B") toggleBookmarkCurrent();
 }
 window.addEventListener("keydown", handleKey);
+
+/* ────────────────────────────────────────────
+   TOAST
+──────────────────────────────────────────── */
+let toastTimeout = null;
+function showToast(msg) {
+    const t = document.getElementById("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(toastTimeout);
+    toastTimeout = setTimeout(() => t.classList.remove("show"), 2500);
+}
 </script>
 </body>
 </html>
