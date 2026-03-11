@@ -7,9 +7,8 @@ $books = glob("books/*.epub");
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
     <title>EPUB Library</title>
-    <script src="js/jszip.min.js"></script>
-    <script src="js/epub.min.js"></script>
     <link rel="stylesheet" href="index.css">
+    <!-- Kita tidak perlu js/jszip.min.js dan js/epub.min.js lagi untuk cover! -->
 </head>
 <body>
 
@@ -44,7 +43,7 @@ $books = glob("books/*.epub");
 </div>
 
 <script>
-/* ── COVER CACHE ── */
+/* ── COVER CACHE (sessionStorage) ── */
 const COVER_PFX = "cover-"
 
 function getCached(url) {
@@ -55,7 +54,7 @@ function setCached(url, dataUrl) {
     try {
         sessionStorage.setItem(COVER_PFX + url, dataUrl)
     } catch {
-        // Storage full — evict oldest 5 cover entries then retry
+        // Jika penyimpanan penuh, hapus 5 entri tertua
         try {
             Object.keys(sessionStorage)
                 .filter(k => k.startsWith(COVER_PFX))
@@ -66,32 +65,13 @@ function setCached(url, dataUrl) {
     }
 }
 
-/* Convert a blob URL to a base64 data URL.
-   Blob URLs are only alive in the current tab's memory — they cannot
-   be stored in sessionStorage and reused. A data URL is self-contained. */
-function blobUrlToDataUrl(blobUrl) {
-    return new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest()
-        xhr.open("GET", blobUrl)
-        xhr.responseType = "blob"
-        xhr.onload = () => {
-            const reader = new FileReader()
-            reader.onloadend = () => resolve(reader.result)
-            reader.onerror  = reject
-            reader.readAsDataURL(xhr.response)
-        }
-        xhr.onerror = reject
-        xhr.send()
-    })
-}
-
-/* ── COVER QUEUE (max 3 concurrent) ── */
+/* ── COVER QUEUE (max 6 concurrent) ── */
 let coverQueue = [], coverActive = 0
 
 function enqueueCover(el) { coverQueue.push(el); pumpCovers() }
 
 function pumpCovers() {
-    while (coverActive < 3 && coverQueue.length) {
+    while (coverActive < 6 && coverQueue.length) {
         coverActive++
         loadCover(coverQueue.shift()).finally(() => { coverActive--; pumpCovers() })
     }
@@ -101,7 +81,7 @@ async function loadCover(el) {
     const url = el.dataset.book
     const img = el.querySelector(".cover")
 
-    // Serve from cache immediately (always a data URL, never a dead blob)
+    // Gunakan cache jika ada
     const cached = getCached(url)
     if (cached) {
         img.src = cached
@@ -109,38 +89,42 @@ async function loadCover(el) {
         return
     }
 
+    // Fetch cover dari endpoint server
+    const coverUrl = `get-cover.php?book=${encodeURIComponent(url)}`
     try {
-        const b = ePub(url)
-        await b.ready
-        const blobUrl = await b.coverUrl()
-        try { b.destroy() } catch {}
-
-        if (blobUrl) {
-            // Convert blob → data URL before showing and caching
-            const dataUrl = await blobUrlToDataUrl(blobUrl)
-            img.src = dataUrl
-            img.classList.replace("loading", "loaded")
-            setCached(url, dataUrl)
-        } else {
-            img.src = "img/image.png"
-            img.classList.replace("loading", "loaded")
-        }
-    } catch {
+        const response = await fetch(coverUrl)
+        if (!response.ok) throw new Error(`HTTP ${response.status}`)
+        const blob = await response.blob()
+        // Konversi blob ke data URL agar bisa dicache di sessionStorage
+        const dataUrl = await new Promise((resolve, reject) => {
+            const reader = new FileReader()
+            reader.onloadend = () => resolve(reader.result)
+            reader.onerror = reject
+            reader.readAsDataURL(blob)
+        })
+        img.src = dataUrl
+        img.classList.replace("loading", "loaded")
+        setCached(url, dataUrl)
+    } catch (err) {
+        console.warn('Gagal memuat cover', url, err)
         img.src = "img/image.png"
         img.classList.replace("loading", "loaded")
     }
 }
 
-/* ── LAZY OBSERVER ── */
+/* ── LAZY LOADING (Intersection Observer) ── */
 const obs = new IntersectionObserver(entries => {
     entries.forEach(e => {
-        if (e.isIntersecting) { obs.unobserve(e.target); enqueueCover(e.target) }
+        if (e.isIntersecting) {
+            obs.unobserve(e.target)
+            enqueueCover(e.target)
+        }
     })
 }, { rootMargin: "300px" })
 
 document.querySelectorAll(".book").forEach(el => obs.observe(el))
 
-/* ── LAST READ BADGE ── */
+/* ── BADGE "lanjut" untuk buku yang sudah pernah dibaca ── */
 document.querySelectorAll(".book").forEach(el => {
     if (localStorage.getItem("epub-" + el.dataset.book)) {
         const badge = document.createElement("span")
@@ -150,7 +134,7 @@ document.querySelectorAll(".book").forEach(el => {
     }
 })
 
-/* ── SEARCH ── */
+/* ── SEARCH (filter berdasarkan judul) ── */
 let searchTimer = null
 document.getElementById("searchBook").addEventListener("input", e => {
     clearTimeout(searchTimer)
@@ -166,7 +150,7 @@ document.getElementById("clearBtn").addEventListener("click", () => {
     document.querySelectorAll(".book").forEach(el => el.style.display = "")
 })
 
-/* ── VIEW ── */
+/* ── GRID / LIST VIEW ── */
 function setView(mode) { document.getElementById("library").className = mode }
 </script>
 </body>
