@@ -8,7 +8,6 @@ $books = glob("books/*.epub");
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
     <title>EPUB Library</title>
     <link rel="stylesheet" href="index.css">
-    <!-- Kita tidak perlu js/jszip.min.js dan js/epub.min.js lagi untuk cover! -->
 </head>
 <body>
 
@@ -31,7 +30,8 @@ $books = glob("books/*.epub");
             <a class="book"
                href="reader.php?book=<?= urlencode($book) ?>"
                data-book="<?= htmlspecialchars($book) ?>"
-               data-title="<?= strtolower(htmlspecialchars($name)) ?>">
+               data-title="<?= strtolower(htmlspecialchars($name)) ?>"
+               data-original-title="<?= htmlspecialchars($name) ?>">
                 <img class="cover loading" src="" alt="">
                 <div class="book-info">
                     <div class="book-title"><?= htmlspecialchars($name) ?></div>
@@ -81,7 +81,6 @@ async function loadCover(el) {
     const url = el.dataset.book
     const img = el.querySelector(".cover")
 
-    // Gunakan cache jika ada
     const cached = getCached(url)
     if (cached) {
         img.src = cached
@@ -89,13 +88,11 @@ async function loadCover(el) {
         return
     }
 
-    // Fetch cover dari endpoint server
     const coverUrl = `get-cover.php?book=${encodeURIComponent(url)}`
     try {
         const response = await fetch(coverUrl)
         if (!response.ok) throw new Error(`HTTP ${response.status}`)
         const blob = await response.blob()
-        // Konversi blob ke data URL agar bisa dicache di sessionStorage
         const dataUrl = await new Promise((resolve, reject) => {
             const reader = new FileReader()
             reader.onloadend = () => resolve(reader.result)
@@ -134,20 +131,50 @@ document.querySelectorAll(".book").forEach(el => {
     }
 })
 
-/* ── SEARCH (filter berdasarkan judul) ── */
+/* ── HIGHLIGHT HELPER ── */
+function highlightText(originalTitle, query) {
+    if (!query) return originalTitle
+    // Escape karakter regex dari query
+    const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const regex = new RegExp(`(${escaped})`, 'gi')
+    return originalTitle.replace(regex, '<mark>$1</mark>')
+}
+
+/* ── SEARCH dengan HIGHLIGHT ── */
 let searchTimer = null
 document.getElementById("searchBook").addEventListener("input", e => {
     clearTimeout(searchTimer)
     searchTimer = setTimeout(() => {
-        const q = e.target.value.toLowerCase()
+        const q = e.target.value.toLowerCase().trim()
         document.querySelectorAll(".book").forEach(el => {
-            el.style.display = el.dataset.title.includes(q) ? "" : "none"
+            const title = el.dataset.title
+            const originalTitle = el.dataset.originalTitle
+            const titleEl = el.querySelector(".book-title")
+
+            if (!q) {
+                // Kosong: kembalikan judul asli tanpa highlight
+                el.style.display = ""
+                titleEl.innerHTML = originalTitle
+            } else if (title.includes(q)) {
+                // Cocok: tampilkan dengan highlight
+                el.style.display = ""
+                titleEl.innerHTML = highlightText(originalTitle, q)
+            } else {
+                // Tidak cocok: sembunyikan dan hapus highlight
+                el.style.display = "none"
+                titleEl.innerHTML = originalTitle
+            }
         })
     }, 150)
 })
+
 document.getElementById("clearBtn").addEventListener("click", () => {
     document.getElementById("searchBook").value = ""
-    document.querySelectorAll(".book").forEach(el => el.style.display = "")
+    document.querySelectorAll(".book").forEach(el => {
+        el.style.display = ""
+        const titleEl = el.querySelector(".book-title")
+        titleEl.innerHTML = el.dataset.originalTitle
+    })
 })
 
 /* ── GRID / LIST VIEW ── */
