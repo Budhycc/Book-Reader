@@ -163,7 +163,7 @@ html, body {
   padding: 0 14px;
 }
 #settingsDrawer.open {
-  max-height: 300px;
+  max-height: 400px;
   padding: 12px 14px;
 }
 .settings-row {
@@ -200,10 +200,16 @@ html, body {
 .theme-btn:hover  { border-color: var(--accent); color: var(--text); }
 .theme-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 
-/* Brightness slider */
+/* Range sliders */
 input[type=range] {
   flex: 1; height: 4px; accent-color: var(--accent);
   background: var(--border); border-radius: 2px; cursor: pointer;
+}
+
+/* Slider value label */
+.slider-val {
+  font-size: 11px; color: var(--muted);
+  min-width: 28px; text-align: right; flex-shrink: 0;
 }
 
 /* Action buttons */
@@ -226,7 +232,8 @@ input[type=range] {
 
 /* ── SIDEBAR ── */
 #sidebarBackdrop {
-  display: none; position: fixed; inset: 0;
+  display: none;
+  position: fixed; inset: 0;
   background: rgba(0,0,0,0.55); z-index: 1000;
   backdrop-filter: blur(2px);
 }

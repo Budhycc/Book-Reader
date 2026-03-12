@@ -117,6 +117,18 @@ $name = basename($book, ".epub");
             <label>Redup</label>
             <input type="range" id="brightnessSlider" min="0" max="80" value="0" oninput="setBrightness(this.value)">
         </div>
+        <div class="settings-row">
+            <label>Spasi</label>
+            <input type="range" id="lineSpacingSlider" min="1.0" max="3.0" step="0.1" value="1.6"
+                   oninput="setLineSpacing(parseFloat(this.value))">
+            <span id="lineSpacingVal" class="slider-val">1.6</span>
+        </div>
+        <div class="settings-row">
+            <label>Margin</label>
+            <input type="range" id="marginSlider" min="0" max="10" step="1" value="4"
+                   oninput="setMargin(parseInt(this.value))">
+            <span id="marginVal" class="slider-val">4%</span>
+        </div>
         <div class="settings-row actions-row">
             <button class="action-btn" onclick="openBookmarks()">🔖 Bookmark</button>
             <button class="action-btn" onclick="openStats()">📊 Statistik</button>
@@ -157,11 +169,13 @@ const customRequest = (url, type) => {
 };
 
 /* ── SETTINGS STATE ── */
-let fontSize   = parseInt(localStorage.getItem("reader-fontSize")) || 100;
-let fontFamily = localStorage.getItem("reader-fontFamily") || "serif";
-let theme      = localStorage.getItem("reader-theme") || "light";
-let flowMode   = localStorage.getItem("reader-flow") || "paginated";
-let currentPct = 0;
+let fontSize    = parseInt(localStorage.getItem("reader-fontSize"))    || 100;
+let fontFamily  = localStorage.getItem("reader-fontFamily")            || "serif";
+let theme       = localStorage.getItem("reader-theme")                 || "light";
+let flowMode    = localStorage.getItem("reader-flow")                  || "paginated";
+let lineSpacing = parseFloat(localStorage.getItem("reader-lineSpacing")) || 1.6;
+let margin      = parseInt(localStorage.getItem("reader-margin"))      ?? 4;
+let currentPct  = 0;
 
 /* ── THEME CONFIGS ── */
 const THEMES = {
@@ -171,6 +185,12 @@ const THEMES = {
 };
 
 document.getElementById("fontSelect").value = fontFamily;
+
+/* ── Sinkronkan slider dengan nilai tersimpan ── */
+document.getElementById("lineSpacingSlider").value = lineSpacing;
+document.getElementById("lineSpacingVal").textContent = lineSpacing.toFixed(1);
+document.getElementById("marginSlider").value = margin;
+document.getElementById("marginVal").textContent = margin + "%";
 
 /* ── DOWNLOAD BUTTON ── */
 const dlBtn = document.getElementById("downloadBtn");
@@ -260,9 +280,7 @@ function updateProgress() {
             currentPct = pct;
             document.getElementById("progress").innerText = pct + "%";
             document.getElementById("progressFill").style.width = pct + "%";
-            // ETA: asumsi rata2 250 kata/menit, estimasi sisa
             const remaining = 100 - pct;
-            // estimasi kasar: 1% ≈ 2 menit untuk buku 500 hal
             const estMin = Math.round(remaining * 1.8);
             if (estMin > 0) {
                 document.getElementById("etaLabel").innerText =
@@ -283,7 +301,9 @@ function applySettings() {
     rendition.themes.font(fontFamily);
     rendition.themes.override("background", t.bg);
     rendition.themes.override("color", t.color);
-    // body bg sesuai tema
+    rendition.themes.override("line-height", lineSpacing.toString());
+    rendition.themes.override("padding-left",  margin + "%");
+    rendition.themes.override("padding-right", margin + "%");
     document.body.setAttribute("data-theme", theme);
 }
 
@@ -299,6 +319,19 @@ function changeFont(f) {
     fontFamily = f;
     rendition.themes.font(f);
     localStorage.setItem("reader-fontFamily", f);
+}
+function setLineSpacing(val) {
+    lineSpacing = val;
+    document.getElementById("lineSpacingVal").textContent = val.toFixed(1);
+    rendition.themes.override("line-height", val.toString());
+    localStorage.setItem("reader-lineSpacing", val);
+}
+function setMargin(val) {
+    margin = val;
+    document.getElementById("marginVal").textContent = val + "%";
+    rendition.themes.override("padding-left",  val + "%");
+    rendition.themes.override("padding-right", val + "%");
+    localStorage.setItem("reader-margin", val);
 }
 
 /* ────────────────────────────────────────────
@@ -322,7 +355,6 @@ function updateThemeBtns() {
 function toggleFlow() {
     flowMode = flowMode === "paginated" ? "scrolled-doc" : "paginated";
     localStorage.setItem("reader-flow", flowMode);
-    // Harus re-render
     const loc = rendition.currentLocation();
     const cfi = loc?.start?.cfi;
     rendition.flow(flowMode);
@@ -354,7 +386,6 @@ function toggleToolbarVisibility() {
     toolbar.classList.toggle("hidden", !toolbarVisible);
     pb.classList.toggle("toolbar-hidden", !toolbarVisible);
 }
-// Auto-hide setelah 4 detik idle saat settings tertutup
 function resetToolbarTimer() {
     clearTimeout(toolbarTimeout);
     if (!document.getElementById("settingsDrawer").classList.contains("open")) {
@@ -371,6 +402,9 @@ document.getElementById("viewer").addEventListener("touchstart", resetToolbarTim
 function toggleSettings() {
     document.getElementById("settingsDrawer").classList.toggle("open");
     clearTimeout(toolbarTimeout);
+}
+function closeSettings() {
+    document.getElementById("settingsDrawer").classList.remove("open");
 }
 
 /* ────────────────────────────────────────────
@@ -452,9 +486,6 @@ function jumpToCfi(cfi) {
     closeBookmarks();
     closeSearch();
 }
-function closeSettings() {
-    document.getElementById("settingsDrawer").classList.remove("open");
-}
 
 /* ────────────────────────────────────────────
    SEARCH
@@ -505,7 +536,6 @@ function trackReadingTime() {
     let stats = {};
     try { stats = JSON.parse(localStorage.getItem(statsKey) || "{}"); } catch {}
     if (!stats[today]) stats[today] = { minutes: 0, pages: 0 };
-    // Tambah 1 menit per 3 halaman (estimasi kasar)
     if (sessionPages % 3 === 0) stats[today].minutes++;
     stats[today].pages++;
     localStorage.setItem(statsKey, JSON.stringify(stats));
