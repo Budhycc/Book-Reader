@@ -42,7 +42,42 @@ $books = glob("books/*.epub");
     </div>
 </div>
 
+<!-- Pagination -->
+<div id="pagination">
+    <button id="prevBtn" onclick="changePage(-1)">◀ Prev</button>
+    <span id="pageInfo"></span>
+    <button id="nextBtn" onclick="changePage(1)">Next ▶</button>
+
+    <div id="perPageWrap">
+        <label for="perPageInput">Tampilkan:</label>
+        <input type="number" id="perPageInput" min="10" max="100" step="10" value="10">
+        <span>per halaman</span>
+    </div>
+</div>
+
 <script>
+const STORAGE_KEY_PER_PAGE = "epub-per-page"
+
+let booksPerPage = parseInt(localStorage.getItem(STORAGE_KEY_PER_PAGE)) || 10
+let currentPage  = 1
+let filteredBooks = []
+
+/* ── Sinkronkan input dengan nilai tersimpan ── */
+const perPageInput = document.getElementById("perPageInput")
+perPageInput.value = booksPerPage
+
+perPageInput.addEventListener("change", () => {
+    let val = parseInt(perPageInput.value) || 10
+    // Bulatkan ke kelipatan 10 terdekat, min 10, max 100
+    val = Math.round(val / 10) * 10
+    val = Math.max(10, Math.min(100, val))
+    perPageInput.value = val
+    booksPerPage = val
+    localStorage.setItem(STORAGE_KEY_PER_PAGE, val)
+    const q = document.getElementById("searchBook").value.toLowerCase().trim()
+    renderPage(1, q)
+})
+
 /* ── COVER CACHE (sessionStorage) ── */
 const COVER_PFX = "cover-"
 
@@ -54,7 +89,6 @@ function setCached(url, dataUrl) {
     try {
         sessionStorage.setItem(COVER_PFX + url, dataUrl)
     } catch {
-        // Jika penyimpanan penuh, hapus 5 entri tertua
         try {
             Object.keys(sessionStorage)
                 .filter(k => k.startsWith(COVER_PFX))
@@ -109,19 +143,16 @@ async function loadCover(el) {
     }
 }
 
-/* ── LAZY LOADING (Intersection Observer) ── */
-const obs = new IntersectionObserver(entries => {
-    entries.forEach(e => {
-        if (e.isIntersecting) {
-            obs.unobserve(e.target)
-            enqueueCover(e.target)
-        }
-    })
-}, { rootMargin: "300px" })
+/* ── COVER LOAD TRACKER ── */
+const loadedCovers = new Set()
+function triggerCoverLoad(el) {
+    if (!loadedCovers.has(el)) {
+        loadedCovers.add(el)
+        enqueueCover(el)
+    }
+}
 
-document.querySelectorAll(".book").forEach(el => obs.observe(el))
-
-/* ── BADGE "lanjut" untuk buku yang sudah pernah dibaca ── */
+/* ── BADGE "lanjut" ── */
 document.querySelectorAll(".book").forEach(el => {
     if (localStorage.getItem("epub-" + el.dataset.book)) {
         const badge = document.createElement("span")
@@ -134,51 +165,76 @@ document.querySelectorAll(".book").forEach(el => {
 /* ── HIGHLIGHT HELPER ── */
 function highlightText(originalTitle, query) {
     if (!query) return originalTitle
-    // Escape karakter regex dari query
     const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
     const regex = new RegExp(`(${escaped})`, 'gi')
     return originalTitle.replace(regex, '<mark>$1</mark>')
 }
 
-/* ── SEARCH dengan HIGHLIGHT ── */
+/* ── PAGINATION ── */
+function renderPage(page, query) {
+    const allBooks = Array.from(document.querySelectorAll(".book"))
+
+    filteredBooks = query
+        ? allBooks.filter(el => el.dataset.title.includes(query))
+        : allBooks
+
+    const totalPages = Math.max(1, Math.ceil(filteredBooks.length / booksPerPage))
+    currentPage = Math.min(Math.max(1, page), totalPages)
+
+    const start = (currentPage - 1) * booksPerPage
+    const end   = start + booksPerPage
+
+    allBooks.forEach(el => {
+        el.style.display = "none"
+        el.querySelector(".book-title").innerHTML = query
+            ? highlightText(el.dataset.originalTitle, query)
+            : el.dataset.originalTitle
+    })
+
+    filteredBooks.slice(start, end).forEach(el => {
+        el.style.display = ""
+        triggerCoverLoad(el)
+    })
+
+    document.getElementById("pageInfo").textContent =
+        filteredBooks.length === 0
+            ? "Tidak ada hasil"
+            : `Halaman ${currentPage} / ${totalPages}  (${filteredBooks.length} buku)`
+
+    document.getElementById("prevBtn").disabled = currentPage <= 1
+    document.getElementById("nextBtn").disabled = currentPage >= totalPages
+
+    document.getElementById("pagination").style.display =
+        filteredBooks.length === 0 ? "none" : "flex"
+
+    window.scrollTo({ top: 0, behavior: "smooth" })
+}
+
+function changePage(dir) {
+    const q = document.getElementById("searchBook").value.toLowerCase().trim()
+    renderPage(currentPage + dir, q)
+}
+
+/* ── SEARCH ── */
 let searchTimer = null
 document.getElementById("searchBook").addEventListener("input", e => {
     clearTimeout(searchTimer)
     searchTimer = setTimeout(() => {
         const q = e.target.value.toLowerCase().trim()
-        document.querySelectorAll(".book").forEach(el => {
-            const title = el.dataset.title
-            const originalTitle = el.dataset.originalTitle
-            const titleEl = el.querySelector(".book-title")
-
-            if (!q) {
-                // Kosong: kembalikan judul asli tanpa highlight
-                el.style.display = ""
-                titleEl.innerHTML = originalTitle
-            } else if (title.includes(q)) {
-                // Cocok: tampilkan dengan highlight
-                el.style.display = ""
-                titleEl.innerHTML = highlightText(originalTitle, q)
-            } else {
-                // Tidak cocok: sembunyikan dan hapus highlight
-                el.style.display = "none"
-                titleEl.innerHTML = originalTitle
-            }
-        })
+        renderPage(1, q)
     }, 150)
 })
 
 document.getElementById("clearBtn").addEventListener("click", () => {
     document.getElementById("searchBook").value = ""
-    document.querySelectorAll(".book").forEach(el => {
-        el.style.display = ""
-        const titleEl = el.querySelector(".book-title")
-        titleEl.innerHTML = el.dataset.originalTitle
-    })
+    renderPage(1, "")
 })
 
 /* ── GRID / LIST VIEW ── */
 function setView(mode) { document.getElementById("library").className = mode }
+
+/* ── INIT ── */
+renderPage(1, "")
 </script>
 </body>
 </html>
