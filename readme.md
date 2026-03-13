@@ -71,8 +71,8 @@ Aplikasi web untuk membaca koleksi buku EPUB secara lokal. Dibangun dengan PHP m
 ### 1. Clone atau unduh project
 
 ```bash
-git clone https://github.com/username/epub-library.git
-cd epub-library
+git clone https://github.com/Budhycc/Book-Reader.git
+cd Book-Reader
 ```
 
 ### 2. Tambahkan buku
