@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+    <title>Upload Buku — EPUB Library</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600&family=DM+Sans:wght@300;400;500&display=swap">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; }
+
+        :root {
+            --bg:        #0f0e0d;
+            --surface:   #1a1815;
+            --card:      #201e1b;
+            --card-hover:#272420;
+            --border:    rgba(255,255,255,0.07);
+            --accent:    #c9923a;
+            --accent2:   #e8b86d;
+            --text:      #e8e0d5;
+            --muted:     #7a6f63;
+            --success:   #4caf50;
+            --success2:  #81c784;
+            --error:     #e05555;
+            --error2:    #ff8080;
+        }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        /* ── HEADER ── */
+        header {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 0 20px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            height: 58px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(12px);
+        }
+        header a {
+            color: var(--muted);
+            text-decoration: none;
+            font-size: 18px;
+            line-height: 1;
+            padding: 6px;
+            border-radius: 8px;
+            transition: color 0.15s, background 0.15s;
+        }
+        header a:hover { color: var(--text); background: rgba(255,255,255,0.06); }
+        header h2 {
+            margin: 0;
+            font-family: 'Playfair Display', serif;
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--accent2);
+        }
+
+        /* ── PAGE ── */
+        .page {
+            max-width: 640px;
+            margin: 0 auto;
+            padding: 40px 20px 60px;
+        }
+
+        .page-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 22px;
+            font-weight: 600;
+            color: var(--accent2);
+            margin: 0 0 6px;
+        }
+        .page-subtitle {
+            font-size: 13.5px;
+            color: var(--muted);
+            margin: 0 0 32px;
+        }
+
+        /* ── DROP ZONE ── */
+        #dropZone {
+            border: 2px dashed var(--border);
+            border-radius: 16px;
+            padding: 52px 24px;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color 0.2s, background 0.2s;
+            background: var(--card);
+            position: relative;
+        }
+        #dropZone:hover,
+        #dropZone.over {
+            border-color: var(--accent);
+            background: rgba(201,146,58,0.06);
+        }
+        #dropZone.over { border-style: solid; }
+
+        #dropZone input[type="file"] {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            cursor: pointer;
+            width: 100%;
+            height: 100%;
+        }
+
+        .drop-icon {
+            font-size: 48px;
+            line-height: 1;
+            margin-bottom: 16px;
+            display: block;
+            pointer-events: none;
+        }
+        .drop-title {
+            font-size: 16px;
+            font-weight: 500;
+            color: var(--text);
+            margin-bottom: 6px;
+            pointer-events: none;
+        }
+        .drop-sub {
+            font-size: 13px;
+            color: var(--muted);
+            pointer-events: none;
+        }
+        .drop-sub span {
+            color: var(--accent2);
+            font-weight: 500;
+        }
+
+        /* ── FILE LIST ── */
+        #fileList {
+            margin-top: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .file-item {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: border-color 0.2s;
+        }
+        .file-item.success { border-color: rgba(76,175,80,0.4); }
+        .file-item.error   { border-color: rgba(224,85,85,0.4); }
+        .file-item.uploading { border-color: rgba(201,146,58,0.4); }
+
+        .file-icon {
+            font-size: 24px;
+            flex-shrink: 0;
+            line-height: 1;
+        }
+
+        .file-meta {
+            flex: 1;
+            min-width: 0;
+        }
+        .file-name {
+            font-size: 13.5px;
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: var(--text);
+        }
+        .file-size {
+            font-size: 11.5px;
+            color: var(--muted);
+            margin-top: 2px;
+        }
+
+        .file-status {
+            font-size: 12px;
+            flex-shrink: 0;
+            font-weight: 500;
+        }
+        .file-status.uploading { color: var(--accent2); }
+        .file-status.success   { color: var(--success2); }
+        .file-status.error     { color: var(--error2); }
+
+        /* Progress bar per file */
+        .file-progress {
+            height: 3px;
+            background: rgba(255,255,255,0.07);
+            border-radius: 2px;
+            margin-top: 8px;
+            overflow: hidden;
+        }
+        .file-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent), var(--accent2));
+            border-radius: 2px;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        .file-item.success .file-progress-fill {
+            background: linear-gradient(90deg, var(--success), var(--success2));
+            width: 100%;
+        }
+        .file-item.error .file-progress-fill {
+            background: var(--error);
+            width: 100%;
+        }
+
+        /* ── ACTION BUTTONS ── */
+        .actions {
+            margin-top: 28px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 10px 22px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            font-family: 'DM Sans', sans-serif;
+            font-size: 13.5px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s, color 0.15s;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .btn-primary {
+            background: var(--accent);
+            color: #fff;
+            border-color: var(--accent);
+        }
+        .btn-primary:hover { background: var(--accent2); border-color: var(--accent2); }
+        .btn-primary:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+        .btn-secondary {
+            background: var(--surface);
+            color: var(--text);
+        }
+        .btn-secondary:hover {
+            background: var(--card-hover);
+            border-color: var(--accent);
+            color: var(--accent2);
+        }
+
+        /* ── SUMMARY ── */
+        #summary {
+            display: none;
+            margin-top: 24px;
+            padding: 14px 18px;
+            border-radius: 12px;
+            font-size: 13.5px;
+            border: 1px solid;
+        }
+        #summary.success {
+            background: rgba(76,175,80,0.08);
+            border-color: rgba(76,175,80,0.3);
+            color: var(--success2);
+        }
+        #summary.partial {
+            background: rgba(201,146,58,0.08);
+            border-color: rgba(201,146,58,0.3);
+            color: var(--accent2);
+        }
+        #summary.error {
+            background: rgba(224,85,85,0.08);
+            border-color: rgba(224,85,85,0.3);
+            color: var(--error2);
+        }
+
+        /* ── SCROLLBAR ── */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #3a3530; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #4a4540; }
+    </style>
+</head>
+<body>
+
+<header>
+    <a href="index.php" title="Kembali ke Library">←</a>
+    <h2>📤 Upload Buku</h2>
+</header>
+
+<div class="page">
+    <p class="page-title">Tambah Buku Baru</p>
+    <p class="page-subtitle">Upload satu atau beberapa file .epub sekaligus ke library.</p>
+
+    <div id="dropZone">
+        <input type="file" id="fileInput" accept=".epub" multiple>
+        <span class="drop-icon">📂</span>
+        <div class="drop-title">Drag & drop file di sini</div>
+        <div class="drop-sub">atau <span>klik untuk memilih file</span> dari perangkat Anda</div>
+    </div>
+
+    <div id="fileList"></div>
+
+    <div class="actions" id="actions" style="display:none">
+        <button class="btn btn-primary" id="uploadBtn">⬆ Upload Semua</button>
+        <button class="btn btn-secondary" id="clearBtn">✕ Hapus Semua</button>
+    </div>
+
+    <div id="summary"></div>
+</div>
+
+<script>
+    const dropZone   = document.getElementById("dropZone")
+    const fileInput  = document.getElementById("fileInput")
+    const fileList   = document.getElementById("fileList")
+    const actions    = document.getElementById("actions")
+    const uploadBtn  = document.getElementById("uploadBtn")
+    const clearBtn   = document.getElementById("clearBtn")
+    const summary    = document.getElementById("summary")
+
+    let pendingFiles = []   // { file, itemEl }
+
+    /* ── Drag over styling ── */
+    dropZone.addEventListener("dragover", e => { e.preventDefault(); dropZone.classList.add("over") })
+    dropZone.addEventListener("dragleave", e => { if (!dropZone.contains(e.relatedTarget)) dropZone.classList.remove("over") })
+    dropZone.addEventListener("drop", e => {
+        e.preventDefault()
+        dropZone.classList.remove("over")
+        addFiles([...e.dataTransfer.files])
+    })
+
+    /* ── File picker ── */
+    fileInput.addEventListener("change", () => {
+        addFiles([...fileInput.files])
+        fileInput.value = ""
+    })
+
+    /* ── Add files to queue ── */
+    function addFiles(files) {
+        const epubs = files.filter(f => f.name.toLowerCase().endsWith(".epub"))
+        if (!epubs.length) {
+            showSummary("error", "❌ Tidak ada file .epub yang dipilih.")
+            return
+        }
+        summary.style.display = "none"
+
+        epubs.forEach(file => {
+            // Cegah duplikat nama
+            if (pendingFiles.some(p => p.file.name === file.name)) return
+
+            const itemEl = createFileItem(file)
+            fileList.appendChild(itemEl)
+            pendingFiles.push({ file, itemEl })
+        })
+
+        actions.style.display = pendingFiles.length ? "flex" : "none"
+    }
+
+    function formatSize(bytes) {
+        if (bytes < 1024) return bytes + " B"
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB"
+        return (bytes / (1024 * 1024)).toFixed(1) + " MB"
+    }
+
+    function createFileItem(file) {
+        const el = document.createElement("div")
+        el.className = "file-item"
+        el.innerHTML = `
+            <div class="file-icon">📖</div>
+            <div class="file-meta">
+                <div class="file-name">${escHtml(file.name)}</div>
+                <div class="file-size">${formatSize(file.size)}</div>
+                <div class="file-progress"><div class="file-progress-fill"></div></div>
+            </div>
+            <div class="file-status">Menunggu</div>
+        `
+        return el
+    }
+
+    function escHtml(str) {
+        return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")
+    }
+
+    /* ── Upload ── */
+    uploadBtn.addEventListener("click", uploadAll)
+
+    async function uploadAll() {
+        if (!pendingFiles.length) return
+        uploadBtn.disabled = true
+        summary.style.display = "none"
+
+        let successCount = 0
+        let errorCount   = 0
+
+        for (const { file, itemEl } of pendingFiles) {
+            const statusEl = itemEl.querySelector(".file-status")
+            const fillEl   = itemEl.querySelector(".file-progress-fill")
+
+            itemEl.classList.add("uploading")
+            statusEl.className = "file-status uploading"
+            statusEl.textContent = "Mengupload…"
+            fillEl.style.width = "40%"
+
+            try {
+                const formData = new FormData()
+                formData.append("epub", file)
+
+                const res = await fetch("upload.php", { method: "POST", body: formData })
+                const data = await res.json()
+
+                if (data.ok) {
+                    itemEl.classList.remove("uploading")
+                    itemEl.classList.add("success")
+                    statusEl.className = "file-status success"
+                    statusEl.textContent = "✓ Berhasil"
+                    fillEl.style.width = "100%"
+                    successCount++
+                } else {
+                    throw new Error(data.error || "Gagal upload")
+                }
+            } catch (err) {
+                itemEl.classList.remove("uploading")
+                itemEl.classList.add("error")
+                statusEl.className = "file-status error"
+                statusEl.textContent = "✕ " + err.message
+                fillEl.style.width = "100%"
+                errorCount++
+            }
+        }
+
+        pendingFiles = []
+        uploadBtn.disabled = false
+        actions.style.display = "none"
+
+        // Summary
+        if (errorCount === 0) {
+            showSummary("success", `✅ ${successCount} buku berhasil diupload. <a href="index.php" style="color:var(--accent2);text-decoration:underline">Kembali ke library →</a>`)
+        } else if (successCount === 0) {
+            showSummary("error", `❌ Semua upload gagal (${errorCount} file).`)
+        } else {
+            showSummary("partial", `⚠ ${successCount} berhasil, ${errorCount} gagal. <a href="index.php" style="color:var(--accent2);text-decoration:underline">Kembali ke library →</a>`)
+        }
+    }
+
+    /* ── Clear ── */
+    clearBtn.addEventListener("click", () => {
+        fileList.innerHTML = ""
+        pendingFiles = []
+        actions.style.display = "none"
+        summary.style.display = "none"
+    })
+
+    function showSummary(type, html) {
+        summary.className = type
+        summary.innerHTML = html
+        summary.style.display = "block"
+    }
+</script>
+</body>
+</html>
