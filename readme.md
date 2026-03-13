@@ -37,10 +37,14 @@ Aplikasi web untuk membaca koleksi buku EPUB secara lokal. Dibangun dengan PHP m
 ├── index.css           # Gaya halaman library
 ├── reader.php          # Halaman reader EPUB
 ├── reader.css          # Gaya halaman reader
-├── get-cover.php       # Endpoint ekstrak cover dari EPUB
+├── get-cover.php       # Endpoint ekstrak + resize + cache cover dari EPUB
 ├── get-epub-part.php   # Endpoint streaming konten EPUB ke browser
+├── upload.php          # Endpoint upload file EPUB
+├── upload.html         # Halaman upload buku
 ├── books/              # Folder tempat menyimpan file .epub
 │   └── *.epub
+├── cache/
+│   └── covers/         # Disk cache cover yang sudah di-resize (auto-generated)
 └── js/
     ├── epub.min.js     # epub.js library
     └── jszip.min.js    # JSZip (dependensi epub.js)
@@ -54,8 +58,11 @@ Aplikasi web untuk membaca koleksi buku EPUB secara lokal. Dibangun dengan PHP m
 |-----------|------------|
 | PHP | ≥ 7.4 |
 | Ekstensi PHP | `zip`, `dom`, `fileinfo` |
+| Ekstensi PHP (opsional) | `gd` — untuk resize & kompres cover otomatis |
 | Web server | Apache / Nginx / PHP built-in server |
 | Browser | Chrome, Firefox, Safari, Edge (modern) |
+
+> **Catatan GD:** Jika ekstensi `gd` aktif, cover akan di-resize ke max 300px dan dikompres (JPEG quality 75) sebelum disimpan ke disk cache. Tanpa GD, cover asli dari EPUB tetap ditampilkan tanpa modifikasi.
 
 ---
 
@@ -75,6 +82,8 @@ Salin file `.epub` ke dalam folder `books/`:
 ```bash
 cp ~/Downloads/buku-saya.epub books/
 ```
+
+Atau gunakan halaman upload di `upload.html`.
 
 ### 3. Jalankan server
 
@@ -144,7 +153,32 @@ Semua data pengguna disimpan di **localStorage** browser — tidak ada data yang
 | Bookmark | `bm-books/nama.epub` |
 | Statistik baca | `stats-books/nama.epub` |
 
-Cover buku di-cache sementara di **sessionStorage** untuk mempercepat tampilan.
+Cover buku di-cache di **sessionStorage** browser dan **disk server** (`cache/covers/`) untuk mempercepat tampilan.
+
+---
+
+## Cache Cover
+
+`get-cover.php` menggunakan sistem cache dua lapis:
+
+**1. Disk cache (server)**
+- Hasil resize disimpan di `cache/covers/` sebagai file `.jpg`
+- Request berikutnya langsung di-serve dari disk tanpa membuka ZIP
+- Cache key berdasarkan nama buku + waktu modifikasi file — otomatis invalid jika buku diganti
+
+**2. Browser cache**
+- Header `Cache-Control: public, max-age=31536000, immutable` + `ETag`
+- Cover tidak di-fetch ulang selama browser cache masih valid
+
+**Auto-cleanup cache**
+- Setiap request cover dari cache, ada peluang 1% cleanup dijalankan secara otomatis
+- File cache yang bukunya sudah dihapus dari `books/` akan ikut dihapus
+- Tidak perlu cron job atau aksi manual
+
+Untuk membersihkan cache secara manual:
+```bash
+rm -rf cache/covers/
+```
 
 ---
 
@@ -152,13 +186,13 @@ Cover buku di-cache sementara di **sessionStorage** untuk mempercepat tampilan.
 
 ### `get-cover.php`
 
-Mengekstrak gambar cover dari file EPUB.
+Mengekstrak, meresize, dan meng-cache gambar cover dari file EPUB.
 
 ```
 GET get-cover.php?book=books/nama.epub
 ```
 
-Respons: gambar (`image/jpeg`, `image/png`, dll.) dengan header cache 1 tahun.
+Respons: `image/jpeg` dengan header cache 1 tahun. Jika GD tidak tersedia, mengirim gambar asli dari EPUB.
 
 ### `get-epub-part.php`
 
@@ -170,7 +204,19 @@ GET get-epub-part.php?book=books/nama.epub&file=path/di/dalam/epub.xhtml
 
 Respons: konten file dengan MIME type yang sesuai dan header ETag untuk caching.
 
-Kedua endpoint dilengkapi validasi keamanan — hanya mengizinkan akses ke file `.epub` di dalam folder `books/` dan mencegah path traversal.
+### `upload.php`
+
+Menerima file EPUB via POST dan menyimpannya ke folder `books/`.
+
+```
+POST upload.php
+Content-Type: multipart/form-data
+Body: epub=<file>
+```
+
+Respons: `{"ok": true, "filename": "nama.epub"}` atau `{"ok": false, "error": "..."}`.
+
+Semua endpoint dilengkapi validasi keamanan — hanya mengizinkan akses ke file `.epub` di dalam folder `books/` dan mencegah path traversal.
 
 ---
 
@@ -178,6 +224,7 @@ Kedua endpoint dilengkapi validasi keamanan — hanya mengizinkan akses ke file 
 
 - Path buku divalidasi dengan regex ketat: hanya `books/*.epub`
 - Endpoint `get-epub-part.php` memblokir `..` dan path absolut
+- Upload hanya menerima file `.epub` dengan sanitasi nama file otomatis
 - Tidak ada eksekusi kode dari konten EPUB (iframe sandbox aktif)
 - Tidak ada autentikasi — cocok untuk penggunaan lokal/intranet
 
@@ -212,6 +259,15 @@ Font dimuat dari Google Fonts CDN. Untuk penggunaan offline, unduh dan host seca
 
 **Cover tidak muncul**
 Pastikan ekstensi PHP `zip` aktif. Cek dengan `php -m | grep zip`.
+
+**Cover lambat dimuat pertama kali**
+Normal — cover pertama kali diekstrak dari ZIP dan di-resize. Request berikutnya langsung dari disk cache dan jauh lebih cepat.
+
+**Cache cover tidak terhapus setelah buku diganti**
+Hapus manual: `rm -rf cache/covers/`. Atau tunggu auto-cleanup berjalan (probabilistik 1% per request).
+
+**GD tidak tersedia**
+Cover tetap tampil tanpa resize. Untuk mengaktifkan GD di Linux: `sudo apt install php-gd`. Di Windows (XAMPP/Laragon): aktifkan `extension=gd` di `php.ini`.
 
 **Buku gagal dibuka**
 Verifikasi file EPUB valid dengan tool seperti EPUBCheck. File EPUB yang rusak atau terenkripsi (DRM) tidak didukung.
