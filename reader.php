@@ -246,6 +246,7 @@ rendition.on("rendered", (section, view) => {
 });
 
 /* ── DISPLAY + RESTORE ── */
+/* [PATCH 1] Tampilkan "Menghitung posisi..." saat locations.generate berjalan */
 book.ready
     .then(() => {
         const last = localStorage.getItem(BOOK_KEY);
@@ -253,6 +254,7 @@ book.ready
     })
     .then(() => {
         document.getElementById("loadingScreen").classList.add("hidden");
+        document.getElementById("etaLabel").innerText = "Menghitung posisi...";
         return book.locations.generate(2048);
     })
     .then(() => updateProgress())
@@ -262,9 +264,11 @@ book.ready
     });
 
 /* ── RELOCATED ── */
+/* [PATCH 2] Sync pct ke library setiap pindah halaman */
 rendition.on("relocated", loc => {
     localStorage.setItem(BOOK_KEY, loc.start.cfi);
     updateProgress();
+    localStorage.setItem("pct-" + BOOK_URL, currentPct);
     updateBookmarkBtn();
     trackReadingTime();
 });
@@ -525,26 +529,64 @@ function doSearch() {
 }
 
 /* ────────────────────────────────────────────
-   READING STATS
+   READING STATS — [PATCH 3] Throttled localStorage writes
+   Sebelumnya: write setiap halaman (boros I/O)
+   Sekarang: buffer di memory, flush tiap 5 halaman atau 30 detik
 ──────────────────────────────────────────── */
 let sessionStart = Date.now();
 let sessionPages = 0;
+let _statsBuffer = null;
+let _statsFlushTimer = null;
+
 function trackReadingTime() {
     sessionPages++;
-    const today = new Date().toISOString().slice(0,10);
+    const today = new Date().toISOString().slice(0, 10);
     const statsKey = "stats-" + BOOK_URL;
-    let stats = {};
-    try { stats = JSON.parse(localStorage.getItem(statsKey) || "{}"); } catch {}
-    if (!stats[today]) stats[today] = { minutes: 0, pages: 0 };
-    if (sessionPages % 3 === 0) stats[today].minutes++;
-    stats[today].pages++;
-    localStorage.setItem(statsKey, JSON.stringify(stats));
+
+    // Inisialisasi buffer dari localStorage hanya sekali per sesi
+    if (!_statsBuffer) {
+        try { _statsBuffer = JSON.parse(localStorage.getItem(statsKey) || "{}"); }
+        catch { _statsBuffer = {}; }
+    }
+
+    if (!_statsBuffer[today]) _statsBuffer[today] = { minutes: 0, pages: 0 };
+    _statsBuffer[today].pages++;
+    if (sessionPages % 3 === 0) _statsBuffer[today].minutes++;
+
+    // Flush ke localStorage setiap 5 halaman
+    if (sessionPages % 5 === 0) {
+        _flushStats(statsKey);
+        return;
+    }
+
+    // Atau flush setelah idle 30 detik
+    clearTimeout(_statsFlushTimer);
+    _statsFlushTimer = setTimeout(() => _flushStats(statsKey), 30000);
 }
+
+function _flushStats(statsKey) {
+    if (!_statsBuffer) return;
+    try { localStorage.setItem(statsKey, JSON.stringify(_statsBuffer)); }
+    catch { /* localStorage penuh, abaikan */ }
+}
+
+// Pastikan data tersimpan saat user menutup tab / navigasi keluar
+window.addEventListener("pagehide", () => {
+    if (_statsBuffer) _flushStats("stats-" + BOOK_URL);
+    localStorage.setItem("pct-" + BOOK_URL, currentPct);
+});
+window.addEventListener("beforeunload", () => {
+    if (_statsBuffer) _flushStats("stats-" + BOOK_URL);
+    localStorage.setItem("pct-" + BOOK_URL, currentPct);
+});
+
 function openStats() {
     closeSettings();
     const statsKey = "stats-" + BOOK_URL;
-    let stats = {};
-    try { stats = JSON.parse(localStorage.getItem(statsKey) || "{}"); } catch {}
+    // Baca dari buffer (in-memory) jika ada, supaya data terbaru tampil
+    const stats = _statsBuffer || (() => {
+        try { return JSON.parse(localStorage.getItem(statsKey) || "{}"); } catch { return {}; }
+    })();
     const keys = Object.keys(stats).sort().reverse();
     const totalPages = keys.reduce((s,k) => s + (stats[k].pages||0), 0);
     const totalMin   = keys.reduce((s,k) => s + (stats[k].minutes||0), 0);
@@ -573,27 +615,31 @@ function openStats() {
         const d = new Date(); d.setDate(d.getDate() - i);
         const dk = d.toISOString().slice(0,10);
         const s = stats[dk] || { pages: 0, minutes: 0 };
-        const label = dk === today ? "Hari ini" : d.toLocaleDateString("id-ID", {weekday:"short", day:"numeric", month:"short"});
-        const barW = Math.min(100, s.pages * 5);
+        const label = dk === today ? "Hari ini" : d.toLocaleDateString("id-ID", { weekday: "short", day: "numeric", month: "short" });
+        const barW = Math.min(100, (s.pages / Math.max(1, ...keys.map(k => stats[k]?.pages || 0))) * 100);
         html += `<div class="stat-day">
-            <span class="stat-day-lbl">${label}</span>
+            <span class="stat-day-label">${label}</span>
             <div class="stat-bar-wrap"><div class="stat-bar" style="width:${barW}%"></div></div>
-            <span class="stat-day-val">${s.pages}p</span>
+            <span class="stat-day-val">${s.pages}h</span>
         </div>`;
     }
     document.getElementById("statsContent").innerHTML = html;
     document.getElementById("statsOverlay").classList.add("open");
 }
 function closeStats() { document.getElementById("statsOverlay").classList.remove("open"); }
-function calcStreak(sortedDays) {
-    if (!sortedDays.length) return 0;
+
+function calcStreak(sortedDaysDesc) {
+    if (!sortedDaysDesc.length) return 0;
     let streak = 0;
     const today = new Date().toISOString().slice(0,10);
-    let cur = new Date(today);
-    for (const dk of [...sortedDays].sort().reverse()) {
-        const expected = cur.toISOString().slice(0,10);
-        if (dk === expected) { streak++; cur.setDate(cur.getDate()-1); }
-        else break;
+    let check = today;
+    for (const day of sortedDaysDesc) {
+        if (day === check) {
+            streak++;
+            const d = new Date(check);
+            d.setDate(d.getDate() - 1);
+            check = d.toISOString().slice(0,10);
+        } else break;
     }
     return streak;
 }
@@ -601,30 +647,28 @@ function calcStreak(sortedDays) {
 /* ────────────────────────────────────────────
    NAVIGATION
 ──────────────────────────────────────────── */
-function prevPage() { rendition.prev(); }
-function nextPage() { rendition.next(); }
+function nextPage() { rendition.next().catch(() => {}); }
+function prevPage() { rendition.prev().catch(() => {}); }
 
-/* ── KEYBOARD ── */
 function handleKey(e) {
-    if (!rendition) return;
-    if (["ArrowRight","ArrowDown"," "].includes(e.key)) { e.preventDefault(); rendition.next(); }
-    else if (["ArrowLeft","ArrowUp"].includes(e.key))   { e.preventDefault(); rendition.prev(); }
-    else if (e.key === "Escape") window.location.href = "index.php";
-    else if (e.key === "f" || e.key === "F") openSearch();
-    else if (e.key === "b" || e.key === "B") toggleBookmarkCurrent();
+    if (e.key === "ArrowRight" || e.key === " ") { e.preventDefault(); nextPage(); }
+    if (e.key === "ArrowLeft")                   { e.preventDefault(); prevPage(); }
+    if (e.key === "Escape")                      { window.location.href = "index.php"; }
+    if (e.key === "b" || e.key === "B")          { toggleBookmarkCurrent(); }
+    if (e.key === "f" || e.key === "F")          { openSearch(); }
 }
-window.addEventListener("keydown", handleKey);
+document.addEventListener("keydown", handleKey);
 
 /* ────────────────────────────────────────────
    TOAST
 ──────────────────────────────────────────── */
-let toastTimeout = null;
+let toastTimer = null;
 function showToast(msg) {
     const t = document.getElementById("toast");
     t.textContent = msg;
     t.classList.add("show");
-    clearTimeout(toastTimeout);
-    toastTimeout = setTimeout(() => t.classList.remove("show"), 2500);
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove("show"), 2200);
 }
 </script>
 </body>

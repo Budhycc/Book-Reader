@@ -53,7 +53,7 @@ $books = glob("books/*.epub");
 
 <div class="container">
     <div id="library" class="grid">
-        <?php foreach ($books as $book):
+    <?php foreach ($books as $book):
             $name = basename($book, ".epub"); ?>
             <a class="book"
                href="reader.php?book=<?= urlencode($book) ?>"
@@ -144,12 +144,9 @@ document.getElementById("filterSelect").addEventListener("change", e => {
 ──────────────────────────────────────────── */
 function getProgress(bookUrl) {
     const key = "epub-" + bookUrl
-    if (!localStorage.getItem(key)) return null   // belum pernah dibuka
-    const statsKey = "stats-" + bookUrl
-    // Coba ambil dari stats jika ada
-    // Fallback: kita simpan pct di key terpisah saat keluar reader
+    if (!localStorage.getItem(key)) return null
     const pct = localStorage.getItem("pct-" + bookUrl)
-    return pct !== null ? parseInt(pct) : 1  // 1 = pernah dibuka tapi pct belum tersimpan
+    return pct !== null ? parseInt(pct) : 1
 }
 
 function getLastRead(bookUrl) {
@@ -169,7 +166,6 @@ document.querySelectorAll(".book").forEach(el => {
     const label = el.querySelector(".book-progress-label")
 
     if (pct === null) {
-        // belum dibaca
         bar.style.width = "0%"
         label.textContent = ""
     } else if (pct >= 95) {
@@ -196,24 +192,57 @@ document.querySelectorAll(".book").forEach(el => {
 })
 
 /* ────────────────────────────────────────────
-   COVER CACHE (sessionStorage)
+   COVER CACHE (sessionStorage) — [PATCH 4] LRU eviction
+   Sebelumnya: evict 5 item pertama secara acak
+   Sekarang: track waktu akses terakhir, hapus yang paling lama tidak dilihat
 ──────────────────────────────────────────── */
-const COVER_PFX = "cover-"
+const COVER_PFX     = "cover-"
+const COVER_LRU_PFX = "cover-lru-"
+const COVER_MAX     = 20   // maksimum cover di-cache sekaligus
+
 function getCached(url) {
-    try { return sessionStorage.getItem(COVER_PFX + url) } catch { return null }
+    try {
+        const val = sessionStorage.getItem(COVER_PFX + url)
+        if (val) sessionStorage.setItem(COVER_LRU_PFX + url, Date.now())
+        return val
+    } catch { return null }
 }
+
 function setCached(url, dataUrl) {
     try {
         sessionStorage.setItem(COVER_PFX + url, dataUrl)
+        sessionStorage.setItem(COVER_LRU_PFX + url, Date.now())
+        _trimCoverCache()
     } catch {
         try {
-            Object.keys(sessionStorage)
-                .filter(k => k.startsWith(COVER_PFX))
-                .slice(0, 5)
-                .forEach(k => sessionStorage.removeItem(k))
+            // sessionStorage penuh — evict setengah cache terlama (LRU)
+            const lruEntries = Object.keys(sessionStorage)
+                .filter(k => k.startsWith(COVER_LRU_PFX))
+                .map(k => ({ key: k.slice(COVER_LRU_PFX.length), ts: parseInt(sessionStorage.getItem(k)) || 0 }))
+                .sort((a, b) => a.ts - b.ts)
+            lruEntries.slice(0, Math.ceil(lruEntries.length / 2)).forEach(({ key }) => {
+                sessionStorage.removeItem(COVER_PFX + key)
+                sessionStorage.removeItem(COVER_LRU_PFX + key)
+            })
             sessionStorage.setItem(COVER_PFX + url, dataUrl)
-        } catch {}
+            sessionStorage.setItem(COVER_LRU_PFX + url, Date.now())
+        } catch { /* gagal total, abaikan */ }
     }
+}
+
+function _trimCoverCache() {
+    try {
+        const entries = Object.keys(sessionStorage)
+            .filter(k => k.startsWith(COVER_LRU_PFX))
+            .map(k => ({ key: k.slice(COVER_LRU_PFX.length), ts: parseInt(sessionStorage.getItem(k)) || 0 }))
+            .sort((a, b) => a.ts - b.ts)
+        if (entries.length > COVER_MAX) {
+            entries.slice(0, entries.length - COVER_MAX).forEach(({ key }) => {
+                sessionStorage.removeItem(COVER_PFX + key)
+                sessionStorage.removeItem(COVER_LRU_PFX + key)
+            })
+        }
+    } catch {}
 }
 
 /* ────────────────────────────────────────────
@@ -231,7 +260,7 @@ const coverObserver = new IntersectionObserver((entries) => {
 async function loadCover(el) {
     const url = el.dataset.book
     const img = el.querySelector(".cover")
-    if (img.src && img.src !== window.location.href) return  // already loaded
+    if (img.src && img.src !== window.location.href) return
 
     const cached = getCached(url)
     if (cached) {
@@ -273,9 +302,7 @@ function normalizeTitle(str) {
 }
 
 function fuzzyMatch(text, query) {
-    // Exact substring match dulu (lebih cepat)
     if (text.includes(query)) return true
-    // Fuzzy: semua karakter query muncul berurutan
     let ti = 0
     for (let qi = 0; qi < query.length; qi++) {
         const c = query[qi]
