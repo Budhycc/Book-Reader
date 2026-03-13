@@ -9,6 +9,39 @@ if (!preg_match('/^books\/[^\/]+\.epub$/', $book) || !file_exists($book)) {
     exit('Book not found.');
 }
 
+// ── DISK CACHE: serve langsung jika sudah pernah di-resize ──
+$cacheDir  = __DIR__ . '/cache/covers/';
+$cacheKey  = md5($book . filemtime($book));
+$cachePath = $cacheDir . $cacheKey . '.jpg';
+
+if (file_exists($cachePath)) {
+    $etag = '"' . $cacheKey . '"';
+    header("ETag: $etag");
+    if (isset($_SERVER['HTTP_IF_NONE_MATCH']) && trim($_SERVER['HTTP_IF_NONE_MATCH']) === $etag) {
+        http_response_code(304);
+        exit();
+    }
+    header("Cache-Control: public, max-age=31536000, immutable");
+    header("Content-Type: image/jpeg");
+    header("Content-Length: " . filesize($cachePath));
+    readfile($cachePath);
+
+    // ── AUTO-CLEANUP (1% chance): hapus cache orphan buku yang sudah dihapus ──
+    if (rand(1, 100) === 1 && is_dir($cacheDir)) {
+        $validKeys = [];
+        foreach (glob(__DIR__ . '/books/*.epub') as $epub) {
+            $validKeys[md5('books/' . basename($epub) . filemtime($epub)) . '.jpg'] = true;
+        }
+        foreach (glob($cacheDir . '*.jpg') as $cached) {
+            if (!isset($validKeys[basename($cached)])) {
+                @unlink($cached);
+            }
+        }
+    }
+
+    exit();
+}
+
 // Buka arsip EPUB (ZIP)
 $zip = new ZipArchive;
 if ($zip->open($book) !== true) {
@@ -98,26 +131,82 @@ if (!$coverData) {
     exit('Cover file not found in EPUB');
 }
 
-// Tentukan MIME type berdasarkan ekstensi
-$ext = strtolower(pathinfo($coverHref, PATHINFO_EXTENSION));
-$mimeTypes = [
-    'jpg' => 'image/jpeg',
-    'jpeg' => 'image/jpeg',
-    'png' => 'image/png',
-    'gif' => 'image/gif',
-    'svg' => 'image/svg+xml',
-    'webp' => 'image/webp',
-    'bmp' => 'image/bmp',
-];
-$contentType = $mimeTypes[$ext] ?? 'image/jpeg';
+// ─────────────────────────────────────────────────────────────
+// KOMPRESI & RESIZE DI SERVER (menggunakan GD)
+// Target: max 300px lebar, JPEG quality 75
+// ─────────────────────────────────────────────────────────────
+$MAX_WIDTH   = 300;   // lebar maksimum output (px)
+$JPEG_QUALITY = 30;   // kualitas JPEG (0–100)
+
+$compressed = false;
+
+if (extension_loaded('gd')) {
+    $src = @imagecreatefromstring($coverData);
+    if ($src !== false) {
+        $origW = imagesx($src);
+        $origH = imagesy($src);
+
+        // Hitung dimensi baru jika perlu di-resize
+        if ($origW > $MAX_WIDTH) {
+            $newW = $MAX_WIDTH;
+            $newH = (int) round($origH * $MAX_WIDTH / $origW);
+        } else {
+            $newW = $origW;
+            $newH = $origH;
+        }
+
+        $dst = imagecreatetruecolor($newW, $newH);
+
+        // Pertahankan transparansi untuk PNG
+        imagealphablending($dst, false);
+        imagesavealpha($dst, true);
+        $transparent = imagecolorallocatealpha($dst, 255, 255, 255, 127);
+        imagefilledrectangle($dst, 0, 0, $newW, $newH, $transparent);
+        imagealphablending($dst, true);
+
+        imagecopyresampled($dst, $src, 0, 0, 0, 0, $newW, $newH, $origW, $origH);
+
+        // Tangkap output JPEG ke buffer
+        ob_start();
+        imagejpeg($dst, null, $JPEG_QUALITY);
+        $compressed = ob_get_clean();
+
+
+    }
+}
+
+// Gunakan data terkompresi jika berhasil, fallback ke asli jika GD gagal
+if ($compressed !== false && $compressed !== '') {
+    $outputData    = $compressed;
+    $outputMime    = 'image/jpeg';
+
+    // Simpan ke disk cache untuk request berikutnya
+    if (!is_dir($cacheDir)) mkdir($cacheDir, 0755, true);
+    file_put_contents($cachePath, $outputData);
+} else {
+    // Fallback: kirim gambar asli tanpa kompres
+    $outputData    = $coverData;
+    $ext = strtolower(pathinfo($coverHref, PATHINFO_EXTENSION));
+    $mimeTypes = [
+        'jpg'  => 'image/jpeg',
+        'jpeg' => 'image/jpeg',
+        'png'  => 'image/png',
+        'gif'  => 'image/gif',
+        'svg'  => 'image/svg+xml',
+        'webp' => 'image/webp',
+        'bmp'  => 'image/bmp',
+    ];
+    $outputMime = $mimeTypes[$ext] ?? 'image/jpeg';
+}
 
 // Kirim header cache (1 tahun) dan ETag
-$etag = '"' . md5($coverData) . '"';
+$etag = '"' . md5($outputData) . '"';
 header("ETag: $etag");
 if (isset($_SERVER['HTTP_IF_NONE_MATCH']) && trim($_SERVER['HTTP_IF_NONE_MATCH']) === $etag) {
     http_response_code(304);
     exit();
 }
 header("Cache-Control: public, max-age=31536000, immutable");
-header("Content-Type: $contentType");
-echo $coverData;
+header("Content-Type: $outputMime");
+header("Content-Length: " . strlen($outputData));
+echo $outputData;
