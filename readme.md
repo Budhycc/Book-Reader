@@ -62,7 +62,7 @@ Aplikasi web untuk membaca koleksi buku EPUB secara lokal. Dibangun dengan PHP m
 | Web server | Apache / Nginx / PHP built-in server |
 | Browser | Chrome, Firefox, Safari, Edge (modern) |
 
-> **Catatan GD:** Jika ekstensi `gd` aktif, cover akan di-resize ke max 300px dan dikompres (JPEG quality 75) sebelum disimpan ke disk cache. Tanpa GD, cover asli dari EPUB tetap ditampilkan tanpa modifikasi.
+> **Catatan GD:** Jika ekstensi `gd` aktif, cover akan di-resize ke max 300px dan dikompres (JPEG quality 30) sebelum disimpan ke disk cache. Tanpa GD, cover asli dari EPUB tetap ditampilkan tanpa modifikasi.
 
 ---
 
