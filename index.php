@@ -170,12 +170,18 @@ function highlightText(originalTitle, query) {
     return originalTitle.replace(regex, '<mark>$1</mark>')
 }
 
+/* ── NORMALIZE: samakan - _ dan spasi agar pencarian fleksibel ── */
+function normalizeTitle(str) {
+    return str.replace(/[-_]/g, ' ').replace(/\s+/g, ' ')
+}
+
 /* ── PAGINATION ── */
 function renderPage(page, query) {
     const allBooks = Array.from(document.querySelectorAll(".book"))
+    const normalizedQuery = normalizeTitle(query)
 
     filteredBooks = query
-        ? allBooks.filter(el => el.dataset.title.includes(query))
+        ? allBooks.filter(el => normalizeTitle(el.dataset.title).includes(normalizedQuery))
         : allBooks
 
     const totalPages = Math.max(1, Math.ceil(filteredBooks.length / booksPerPage))
@@ -186,9 +192,14 @@ function renderPage(page, query) {
 
     allBooks.forEach(el => {
         el.style.display = "none"
-        el.querySelector(".book-title").innerHTML = query
-            ? highlightText(el.dataset.originalTitle, query)
-            : el.dataset.originalTitle
+        const titleEl = el.querySelector(".book-title")
+        if (query) {
+            // Tampilkan judul dengan - dan _ diganti spasi, lalu highlight
+            const displayTitle = normalizeTitle(el.dataset.originalTitle)
+            titleEl.innerHTML = highlightText(displayTitle, normalizedQuery)
+        } else {
+            titleEl.textContent = el.dataset.originalTitle
+        }
     })
 
     filteredBooks.slice(start, end).forEach(el => {
