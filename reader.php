@@ -145,8 +145,8 @@ $name = basename($book, ".epub");
         <button id="sfPrev" class="sf-btn" onclick="prevPage()">
             <span class="sf-arrow">←</span>
             <span class="sf-texts">
-                <span class="sf-hint">sebelumnya</span>
-                <span class="sf-name" id="sfPrevLabel">—</span>
+                <!-- <span class="sf-hint">sebelumnya</span> -->
+                <span class="sf-name" id="sfPrevLabel">sebelumnya</span>
             </span>
         </button>
 
@@ -157,8 +157,8 @@ $name = basename($book, ".epub");
 
         <button id="sfNext" class="sf-btn" onclick="nextPage()">
             <span class="sf-texts sf-texts-right">
-                <span class="sf-hint">berikutnya</span>
-                <span class="sf-name" id="sfNextLabel">—</span>
+                <!-- <span class="sf-hint">berikutnya</span> -->
+                <span class="sf-name" id="sfNextLabel">berikutnya</span>
             </span>
             <span class="sf-arrow">→</span>
         </button>
