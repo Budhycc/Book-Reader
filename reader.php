@@ -280,18 +280,44 @@ rendition.on("rendered", (section, view) => {
 book.ready
     .then(() => {
         const last = localStorage.getItem(BOOK_KEY);
-        return last ? rendition.display(last) : rendition.display();
+        const displayPromise = last
+            ? safeDisplay(last)
+            : rendition.display();
+        book.locations.generate(2048)
+            .then(() => {
+                console.log("Locations ready");
+                updateProgress();
+            })
+            .catch(err => {
+                console.warn("Locations gagal:", err);
+            });
+
+        return displayPromise;
     })
     .then(() => {
         document.getElementById("loadingScreen").classList.add("hidden");
-        document.getElementById("etaLabel").innerText = "Menghitung posisi...";
-        return book.locations.generate(2048);
     })
-    .then(() => updateProgress())
     .catch(err => {
         document.getElementById("loadingScreen").classList.add("hidden");
         alert('Gagal membuka buku: ' + err.message);
     });
+
+function safeDisplay(cfi) {
+    return rendition.display(cfi).catch(() => {
+        console.warn("Retry display...");
+        return new Promise(res => setTimeout(res, 200))
+            .then(() => rendition.display(cfi));
+    });
+}
+
+document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") {
+        const loc = rendition.currentLocation();
+        if (loc?.start?.cfi) {
+            localStorage.setItem(BOOK_KEY, loc.start.cfi);
+        }
+    }
+});
 
 /* ── RELOCATED ── */
 rendition.on("relocated", loc => {
@@ -308,17 +334,16 @@ rendition.on("relocated", loc => {
 ──────────────────────────────────────────── */
 function updateProgress() {
     try {
+        if (!book.locations || !book.locations.percentageFromCfi) return;
+
         const loc = rendition.currentLocation();
-        if (loc?.start && book.locations?.percentageFromCfi) {
-            const pct = Math.floor(book.locations.percentageFromCfi(loc.start.cfi) * 100);
-            currentPct = pct;
-            document.getElementById("progress").innerText = pct + "%";
-            document.getElementById("progressFill").style.width = pct + "%";
-            const estMin = Math.round((100 - pct) * 1.8);
-            document.getElementById("etaLabel").innerText = estMin > 0
-                ? (estMin >= 60 ? `±${Math.floor(estMin/60)}j ${estMin%60}m` : `±${estMin} mnt tersisa`)
-                : "Hampir selesai!";
-        }
+        if (!loc?.start) return;
+
+        const pct = Math.floor(book.locations.percentageFromCfi(loc.start.cfi) * 100);
+
+        currentPct = pct;
+        document.getElementById("progress").innerText = pct + "%";
+        document.getElementById("progressFill").style.width = pct + "%";
     } catch {}
 }
 
@@ -567,26 +592,89 @@ function jumpToCfi(cfi) { rendition.display(cfi).catch(() => {}); closeBookmarks
 let searchDebounce = null;
 function openSearch() { closeSettings(); document.getElementById("searchOverlay").classList.add("open"); setTimeout(() => document.getElementById("searchInput").focus(), 100); }
 function closeSearch() { document.getElementById("searchOverlay").classList.remove("open"); }
-function doSearch() {
+
+async function doSearch() {
     clearTimeout(searchDebounce);
+
     searchDebounce = setTimeout(async () => {
-        const q = document.getElementById("searchInput").value.trim();
+        const q = document.getElementById("searchInput").value.trim().toLowerCase();
         const resultsEl = document.getElementById("searchResults");
         const countEl   = document.getElementById("searchCount");
-        if (q.length < 2) { resultsEl.innerHTML = ""; countEl.textContent = ""; return; }
-        resultsEl.innerHTML = '<div class="search-loading">Mencari...</div>';
-        try {
-            const results = await book.search(q);
-            countEl.textContent = results.length ? `${results.length} hasil` : "Tidak ditemukan";
-            if (!results.length) { resultsEl.innerHTML = '<div class="search-loading">Tidak ditemukan.</div>'; return; }
+
+        if (q.length < 2) {
             resultsEl.innerHTML = "";
-            results.slice(0, 50).forEach(r => {
-                const d = document.createElement("div"); d.className = "search-item";
+            countEl.textContent = "";
+            return;
+        }
+
+        resultsEl.innerHTML = '<div class="search-loading">Mencari...</div>';
+
+        try {
+            let results = [];
+
+            await book.ready;
+            await book.loaded.spine;
+
+            const spineItems = book.spine.spineItems;
+
+            for (let item of spineItems) {
+                try {
+                    // 🔥 ambil langsung via backend (INI KUNCINYA)
+                    const textRaw = await customRequest(item.href, 'text');
+
+                    if (!textRaw) continue;
+
+                    // parse HTML/XHTML
+                    const doc = new DOMParser().parseFromString(textRaw, "text/html");
+                    const text = doc.body?.textContent?.toLowerCase() || "";
+
+                    if (!text) continue;
+
+                    let idx = text.indexOf(q);
+
+                    if (idx !== -1) {
+                        const excerpt = text.substring(Math.max(0, idx - 50), idx + 100);
+
+                        results.push({
+                            cfi: item.cfiBase,
+                            excerpt: excerpt
+                        });
+                    }
+
+                } catch (e) {
+                    console.warn("Search error:", item.href, e);
+                }
+            }
+
+            countEl.textContent = results.length
+                ? `${results.length} hasil`
+                : "Tidak ditemukan";
+
+            if (!results.length) {
+                resultsEl.innerHTML = '<div class="search-loading">Tidak ditemukan.</div>';
+                return;
+            }
+
+            resultsEl.innerHTML = "";
+
+            results.forEach(r => {
+                const d = document.createElement("div");
+                d.className = "search-item";
+
                 d.innerHTML = `<p>${r.excerpt.replace(new RegExp(q, "gi"), m => `<mark>${m}</mark>`)}</p>`;
-                d.onclick = () => { rendition.display(r.cfi).catch(() => {}); closeSearch(); };
+
+                d.onclick = () => {
+                    rendition.display(r.cfi);
+                    closeSearch();
+                };
+
                 resultsEl.appendChild(d);
             });
-        } catch { resultsEl.innerHTML = '<div class="search-loading">Gagal mencari.</div>'; }
+
+        } catch (e) {
+            console.error(e);
+            resultsEl.innerHTML = '<div class="search-loading">Gagal mencari.</div>';
+        }
     }, 400);
 }
 
