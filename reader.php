@@ -23,7 +23,6 @@ $name = basename($book, ".epub");
     <div>Membuka buku...</div>
 </div>
 
-<!-- Brightness overlay -->
 <div id="brightnessOverlay"></div>
 
 <!-- Search overlay -->
@@ -60,7 +59,6 @@ $name = basename($book, ".epub");
 
 <div id="app">
 
-    <!-- Main toolbar -->
     <div class="toolbar" id="toolbar">
         <button class="t-btn" onclick="toggleSidebar()" title="Chapters">☰</button>
         <a class="t-btn" href="index.php" title="Library">🏠</a>
@@ -68,18 +66,16 @@ $name = basename($book, ".epub");
         <button class="t-btn" onclick="nextPage()" title="Berikutnya">▶</button>
         <span id="bookTitle"></span>
         <span id="progress"></span>
-        <button class="t-btn" onclick="toggleBookmarkCurrent()" id="bmBtn" title="Bookmark halaman ini">🔖</button>
-        <button class="t-btn" onclick="openSearch()" title="Cari teks">🔍</button>
+        <button class="t-btn" onclick="toggleBookmarkCurrent()" id="bmBtn" title="Bookmark">🔖</button>
+        <button class="t-btn" onclick="openSearch()" title="Cari">🔍</button>
         <button class="t-btn" onclick="toggleSettings()" title="Pengaturan">⚙</button>
     </div>
 
-    <!-- Progress bar -->
     <div id="progressBar">
         <div id="progressFill"></div>
         <div id="etaLabel"></div>
     </div>
 
-    <!-- Settings drawer -->
     <div id="settingsDrawer">
         <div class="settings-row">
             <label>Ukuran</label>
@@ -113,11 +109,10 @@ $name = basename($book, ".epub");
                 <a class="t-btn" id="downloadBtn" title="Download">⬇ Unduh</a>
             </div>
         </div>
-        <!-- ── SWIPE TOGGLE ── -->
         <div class="settings-row">
             <label>Swipe</label>
             <div class="btn-group">
-                <button class="t-btn" id="swipeToggleBtn" onclick="toggleSwipe()" title="Aktifkan/Matikan swipe">👆 Aktif</button>
+                <button class="t-btn" id="swipeToggleBtn" onclick="toggleSwipe()">👆 Aktif</button>
             </div>
             <span id="swipeStatusLabel" style="font-size:11px;color:var(--muted);margin-left:4px;align-self:center;"></span>
         </div>
@@ -145,9 +140,32 @@ $name = basename($book, ".epub");
 
     <div id="viewer"></div>
 
+    <!-- ── SCROLL-MODE FOOTER NAV ── -->
+    <div id="scrollFooter">
+        <button id="sfPrev" class="sf-btn" onclick="prevPage()">
+            <span class="sf-arrow">←</span>
+            <span class="sf-texts">
+                <span class="sf-hint">sebelumnya</span>
+                <span class="sf-name" id="sfPrevLabel">—</span>
+            </span>
+        </button>
+
+        <div id="sfCenter">
+            <div id="sfChapterName"></div>
+            <div id="sfChapterIndex"></div>
+        </div>
+
+        <button id="sfNext" class="sf-btn" onclick="nextPage()">
+            <span class="sf-texts sf-texts-right">
+                <span class="sf-hint">berikutnya</span>
+                <span class="sf-name" id="sfNextLabel">—</span>
+            </span>
+            <span class="sf-arrow">→</span>
+        </button>
+    </div>
+
 </div>
 
-<!-- Sidebar -->
 <div id="sidebarBackdrop" onclick="closeSidebar()"></div>
 <div id="sidebar">
     <div id="sidebarHeader">
@@ -157,7 +175,6 @@ $name = basename($book, ".epub");
     <div id="toc"></div>
 </div>
 
-<!-- Toast notification -->
 <div id="toast"></div>
 
 <script>
@@ -167,44 +184,38 @@ const BOOK_KEY = "epub-" + BOOK_URL;
 /* ── CUSTOM REQUEST ── */
 const customRequest = (url, type) => {
     const endpoint = `get-epub-part.php?book=${encodeURIComponent(BOOK_URL)}&file=${encodeURIComponent(url)}`;
-    return fetch(endpoint).then(response => {
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        if (type === 'xml') return response.text().then(str => new DOMParser().parseFromString(str, 'application/xml'));
-        if (type === 'json') return response.json();
-        if (type === 'blob') return response.blob();
-        return response.text();
+    return fetch(endpoint).then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        if (type === 'xml')  return r.text().then(s => new DOMParser().parseFromString(s, 'application/xml'));
+        if (type === 'json') return r.json();
+        if (type === 'blob') return r.blob();
+        return r.text();
     });
 };
 
-/* ── SETTINGS STATE ── */
-let fontSize    = parseInt(localStorage.getItem("reader-fontSize"))    || 100;
-let fontFamily  = localStorage.getItem("reader-fontFamily")            || "serif";
-let theme       = localStorage.getItem("reader-theme")                 || "light";
-let flowMode    = localStorage.getItem("reader-flow")                  || "paginated";
+/* ── STATE ── */
+let fontSize    = parseInt(localStorage.getItem("reader-fontSize"))      || 100;
+let fontFamily  = localStorage.getItem("reader-fontFamily")              || "serif";
+let theme       = localStorage.getItem("reader-theme")                   || "light";
+let flowMode    = localStorage.getItem("reader-flow")                    || "paginated";
 let lineSpacing = parseFloat(localStorage.getItem("reader-lineSpacing")) || 1.6;
-let margin      = parseInt(localStorage.getItem("reader-margin"))      ?? 4;
+let margin      = parseInt(localStorage.getItem("reader-margin"))        ?? 4;
 let currentPct  = 0;
-
-/* ── SWIPE STATE ── */
-// Default: aktif (true). Tersimpan di localStorage per buku agar konsisten.
 let swipeEnabled = localStorage.getItem("reader-swipe") !== "false";
+let tocItems    = [];   // cache TOC untuk label footer
 
-/* ── THEME CONFIGS ── */
 const THEMES = {
     light: { bg: "#ffffff", color: "#1a1a1a" },
     sepia: { bg: "#f4ecd8", color: "#3b2f1e" },
     dark:  { bg: "#111111", color: "#e8e0d5" }
 };
 
+/* ── INIT UI ── */
 document.getElementById("fontSelect").value = fontFamily;
-
-/* ── Sinkronkan slider dengan nilai tersimpan ── */
 document.getElementById("lineSpacingSlider").value = lineSpacing;
 document.getElementById("lineSpacingVal").textContent = lineSpacing.toFixed(1);
 document.getElementById("marginSlider").value = margin;
 document.getElementById("marginVal").textContent = margin + "%";
-
-/* ── DOWNLOAD BUTTON ── */
 const dlBtn = document.getElementById("downloadBtn");
 dlBtn.href = BOOK_URL;
 dlBtn.setAttribute("download", BOOK_URL.split("/").pop());
@@ -221,6 +232,7 @@ applySettings();
 updateFlowBtn();
 updateThemeBtns();
 updateSwipeBtn();
+syncScrollFooterVisibility();
 
 /* ── TITLE ── */
 book.loaded.metadata.then(m => {
@@ -229,6 +241,7 @@ book.loaded.metadata.then(m => {
 
 /* ── TOC ── */
 book.loaded.navigation.then(toc => {
+    tocItems = toc;
     const frag = document.createDocumentFragment();
     toc.forEach(ch => {
         const d = document.createElement("div");
@@ -239,44 +252,23 @@ book.loaded.navigation.then(toc => {
     document.getElementById("toc").replaceChildren(frag);
 }).catch(() => {});
 
-/* ────────────────────────────────────────────
-   SWIPE
-   Setiap kali view di-render ulang, listener
-   swipe dipasang ulang. Jika swipeEnabled=false,
-   handler touchend tidak melakukan apa-apa.
-──────────────────────────────────────────── */
+/* ── RENDERED (swipe + tap) ── */
 rendition.on("rendered", (section, view) => {
     try { view.window.addEventListener("keydown", handleKey); } catch {}
-
     const doc = view.document;
     if (!doc) return;
-
-    let tx = 0, ty = 0;
-    let touchStarted = false;
-
+    let tx = 0, ty = 0, tStarted = false;
     doc.addEventListener("touchstart", e => {
-        tx = e.touches[0].clientX;
-        ty = e.touches[0].clientY;
-        touchStarted = true;
+        tx = e.touches[0].clientX; ty = e.touches[0].clientY; tStarted = true;
     }, { passive: true });
-
     doc.addEventListener("touchend", e => {
-        if (!touchStarted) return;
-        touchStarted = false;
-
-        // Jika swipe dimatikan, abaikan gerakan
+        if (!tStarted) return; tStarted = false;
         if (!swipeEnabled) return;
-
         const dx = e.changedTouches[0].clientX - tx;
         const dy = e.changedTouches[0].clientY - ty;
-
-        // Minimal 40px horizontal, lebih dominan dari vertikal
-        if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.2) {
+        if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.2)
             dx < 0 ? rendition.next() : rendition.prev();
-        }
     }, { passive: true });
-
-    // Tap tengah layar: toggle toolbar (auto-hide)
     doc.addEventListener("click", e => {
         const w = doc.documentElement.clientWidth;
         if (e.clientX > w * 0.3 && e.clientX < w * 0.7) toggleToolbarVisibility();
@@ -307,10 +299,11 @@ rendition.on("relocated", loc => {
     localStorage.setItem("pct-" + BOOK_URL, currentPct);
     updateBookmarkBtn();
     trackReadingTime();
+    if (isScrollMode()) updateScrollFooterLabels();
 });
 
 /* ────────────────────────────────────────────
-   PROGRESS BAR + ETA
+   PROGRESS BAR
 ──────────────────────────────────────────── */
 function updateProgress() {
     try {
@@ -320,33 +313,98 @@ function updateProgress() {
             currentPct = pct;
             document.getElementById("progress").innerText = pct + "%";
             document.getElementById("progressFill").style.width = pct + "%";
-            const remaining = 100 - pct;
-            const estMin = Math.round(remaining * 1.8);
-            if (estMin > 0) {
-                document.getElementById("etaLabel").innerText =
-                    estMin >= 60 ? `±${Math.floor(estMin/60)}j ${estMin%60}m` : `±${estMin} mnt tersisa`;
-            } else {
-                document.getElementById("etaLabel").innerText = "Hampir selesai!";
-            }
+            const estMin = Math.round((100 - pct) * 1.8);
+            document.getElementById("etaLabel").innerText = estMin > 0
+                ? (estMin >= 60 ? `±${Math.floor(estMin/60)}j ${estMin%60}m` : `±${estMin} mnt tersisa`)
+                : "Hampir selesai!";
         }
     } catch {}
 }
 
 /* ────────────────────────────────────────────
-   SETTINGS APPLY
+   SCROLL-MODE FOOTER
+──────────────────────────────────────────── */
+function isScrollMode() {
+    return flowMode === "scrolled-doc" || flowMode === "scrolled-continuous" || flowMode === "scrolled";
+}
+
+function syncScrollFooterVisibility() {
+    document.getElementById("scrollFooter").classList.toggle("sf-visible", isScrollMode());
+}
+
+/* Cari label TOC yang paling cocok untuk section tertentu */
+function labelForSection(sec) {
+    if (!sec) return null;
+    const href = (sec.href || "").split("#")[0];
+    // Coba cocokkan exact, lalu partial
+    const hit = tocItems.find(t => {
+        const th = (t.href || "").split("#")[0];
+        return th === href || href.endsWith(th) || th.endsWith(href);
+    });
+    return hit ? hit.label.trim() : null;
+}
+
+function updateScrollFooterLabels() {
+    try {
+        const loc = rendition.currentLocation();
+        if (!loc?.start) return;
+
+        const spine   = book.spine;
+        const section = spine.get(loc.start.cfi);
+        if (!section) return;
+
+        const prevSec = section.prev ? section.prev() : null;
+        const nextSec = section.next ? section.next() : null;
+
+        /* ── tengah: nama chapter aktif ── */
+        const curLabel = labelForSection(section);
+        const spineItems = spine.spineItems ? spine.spineItems.filter(s => s.linear) : [];
+        const total      = spineItems.length;
+        const idx        = spineItems.findIndex(s => s.index === section.index) + 1;
+
+        document.getElementById("sfChapterName").textContent  = curLabel || "";
+        document.getElementById("sfChapterIndex").textContent = total ? `${idx} / ${total}` : "";
+
+        /* ── tombol prev ── */
+        const prevBtn   = document.getElementById("sfPrev");
+        const prevLblEl = document.getElementById("sfPrevLabel");
+        if (prevSec) {
+            prevBtn.disabled    = false;
+            prevLblEl.textContent = labelForSection(prevSec) || "Chapter sebelumnya";
+        } else {
+            prevBtn.disabled    = true;
+            prevLblEl.textContent = "Awal buku";
+        }
+
+        /* ── tombol next ── */
+        const nextBtn   = document.getElementById("sfNext");
+        const nextLblEl = document.getElementById("sfNextLabel");
+        if (nextSec) {
+            nextBtn.disabled    = false;
+            nextLblEl.textContent = labelForSection(nextSec) || "Chapter berikutnya";
+        } else {
+            nextBtn.disabled    = true;
+            nextLblEl.textContent = "Akhir buku";
+        }
+    } catch(e) {
+        console.warn("scrollFooter update error:", e);
+    }
+}
+
+/* ────────────────────────────────────────────
+   SETTINGS
 ──────────────────────────────────────────── */
 function applySettings() {
     const t = THEMES[theme] || THEMES.light;
     rendition.themes.fontSize(fontSize + "%");
     rendition.themes.font(fontFamily);
-    rendition.themes.override("background", t.bg);
-    rendition.themes.override("color", t.color);
-    rendition.themes.override("line-height", lineSpacing.toString());
+    rendition.themes.override("background",    t.bg);
+    rendition.themes.override("color",         t.color);
+    rendition.themes.override("line-height",   lineSpacing.toString());
     rendition.themes.override("padding-left",  margin + "%");
     rendition.themes.override("padding-right", margin + "%");
     document.body.setAttribute("data-theme", theme);
 }
-
 function biggerText()  { setFontSize(fontSize + 10); }
 function smallerText() { setFontSize(fontSize - 10); }
 function resetFont()   { setFontSize(100); }
@@ -374,16 +432,13 @@ function setMargin(val) {
     localStorage.setItem("reader-margin", val);
 }
 
-/* ────────────────────────────────────────────
-   SWIPE TOGGLE
-──────────────────────────────────────────── */
+/* ── Swipe ── */
 function toggleSwipe() {
     swipeEnabled = !swipeEnabled;
     localStorage.setItem("reader-swipe", swipeEnabled ? "true" : "false");
     updateSwipeBtn();
     showToast(swipeEnabled ? "Swipe diaktifkan 👆" : "Swipe dinonaktifkan ✋");
 }
-
 function updateSwipeBtn() {
     const btn   = document.getElementById("swipeToggleBtn");
     const label = document.getElementById("swipeStatusLabel");
@@ -398,9 +453,7 @@ function updateSwipeBtn() {
     }
 }
 
-/* ────────────────────────────────────────────
-   THEME (light / sepia / dark)
-──────────────────────────────────────────── */
+/* ── Theme ── */
 function setTheme(t) {
     theme = t;
     localStorage.setItem("reader-theme", t);
@@ -408,72 +461,51 @@ function setTheme(t) {
     updateThemeBtns();
 }
 function updateThemeBtns() {
-    document.querySelectorAll(".theme-btn").forEach(b => {
-        b.classList.toggle("active", b.dataset.theme === theme);
-    });
+    document.querySelectorAll(".theme-btn").forEach(b =>
+        b.classList.toggle("active", b.dataset.theme === theme));
 }
 
-/* ────────────────────────────────────────────
-   FLOW MODE (paginated ↔ scroll)
-──────────────────────────────────────────── */
+/* ── Flow ── */
 function toggleFlow() {
     flowMode = flowMode === "paginated" ? "scrolled-doc" : "paginated";
     localStorage.setItem("reader-flow", flowMode);
-    const loc = rendition.currentLocation();
-    const cfi = loc?.start?.cfi;
+    const cfi = rendition.currentLocation()?.start?.cfi;
     rendition.flow(flowMode);
     if (cfi) rendition.display(cfi).catch(() => {});
     updateFlowBtn();
+    syncScrollFooterVisibility();
+    if (isScrollMode()) updateScrollFooterLabels();
 }
 function updateFlowBtn() {
-    const btn = document.getElementById("flowBtn");
-    btn.textContent = flowMode === "paginated" ? "📄 Scroll" : "📖 Halaman";
+    document.getElementById("flowBtn").textContent =
+        flowMode === "paginated" ? "📄 Scroll" : "📖 Halaman";
 }
 
-/* ────────────────────────────────────────────
-   BRIGHTNESS OVERLAY
-──────────────────────────────────────────── */
+/* ── Brightness ── */
 function setBrightness(val) {
-    const alpha = val / 100;
-    document.getElementById("brightnessOverlay").style.opacity = alpha;
+    document.getElementById("brightnessOverlay").style.opacity = val / 100;
 }
 
-/* ────────────────────────────────────────────
-   AUTO-HIDE TOOLBAR
-──────────────────────────────────────────── */
-let toolbarVisible = true;
-let toolbarTimeout = null;
+/* ── Toolbar auto-hide ── */
+let toolbarVisible = true, toolbarTimeout = null;
 function toggleToolbarVisibility() {
     toolbarVisible = !toolbarVisible;
-    const toolbar = document.getElementById("toolbar");
-    const pb = document.getElementById("progressBar");
-    toolbar.classList.toggle("hidden", !toolbarVisible);
-    pb.classList.toggle("toolbar-hidden", !toolbarVisible);
+    document.getElementById("toolbar").classList.toggle("hidden", !toolbarVisible);
+    document.getElementById("progressBar").classList.toggle("toolbar-hidden", !toolbarVisible);
 }
 function resetToolbarTimer() {
     clearTimeout(toolbarTimeout);
-    if (!document.getElementById("settingsDrawer").classList.contains("open")) {
-        toolbarTimeout = setTimeout(() => {
-            if (toolbarVisible) toggleToolbarVisibility();
-        }, 5000);
-    }
+    if (!document.getElementById("settingsDrawer").classList.contains("open"))
+        toolbarTimeout = setTimeout(() => { if (toolbarVisible) toggleToolbarVisibility(); }, 5000);
 }
 document.getElementById("viewer").addEventListener("touchstart", resetToolbarTimer, { passive: true });
 
-/* ────────────────────────────────────────────
-   SETTINGS DRAWER
-──────────────────────────────────────────── */
 function toggleSettings() {
     document.getElementById("settingsDrawer").classList.toggle("open");
     clearTimeout(toolbarTimeout);
 }
-function closeSettings() {
-    document.getElementById("settingsDrawer").classList.remove("open");
-}
 
-/* ────────────────────────────────────────────
-   SIDEBAR / TOC
-──────────────────────────────────────────── */
+/* ── Sidebar ── */
 function toggleSidebar() {
     const isOpen = document.getElementById("sidebar").classList.toggle("open");
     document.getElementById("sidebarBackdrop").classList.toggle("open", isOpen);
@@ -486,37 +518,25 @@ function closeSidebar() {
     document.getElementById("viewer").classList.remove("shift");
 }
 
-/* ────────────────────────────────────────────
-   BOOKMARK
-──────────────────────────────────────────── */
-function getBookmarks() {
-    try { return JSON.parse(localStorage.getItem("bm-" + BOOK_URL) || "[]"); } catch { return []; }
-}
-function saveBookmarks(bms) {
-    localStorage.setItem("bm-" + BOOK_URL, JSON.stringify(bms));
-}
+/* ── Bookmarks ── */
+function getBookmarks() { try { return JSON.parse(localStorage.getItem("bm-" + BOOK_URL) || "[]"); } catch { return []; } }
+function saveBookmarks(bms) { localStorage.setItem("bm-" + BOOK_URL, JSON.stringify(bms)); }
 function toggleBookmarkCurrent() {
     const loc = rendition.currentLocation();
     if (!loc?.start?.cfi) return;
     const cfi = loc.start.cfi;
     let bms = getBookmarks();
     const idx = bms.findIndex(b => b.cfi === cfi);
-    if (idx >= 0) {
-        bms.splice(idx, 1);
-        showToast("Bookmark dihapus");
-    } else {
-        bms.push({ cfi, pct: currentPct, label: `Hal. ${currentPct}%`, time: Date.now() });
-        showToast("Bookmark ditambahkan 🔖");
-    }
+    if (idx >= 0) { bms.splice(idx, 1); showToast("Bookmark dihapus"); }
+    else { bms.push({ cfi, pct: currentPct, label: `Hal. ${currentPct}%`, time: Date.now() }); showToast("Bookmark ditambahkan 🔖"); }
     saveBookmarks(bms);
     updateBookmarkBtn();
 }
 function updateBookmarkBtn() {
     const loc = rendition.currentLocation();
     if (!loc?.start?.cfi) return;
-    const cfi = loc.start.cfi;
-    const bms = getBookmarks();
-    document.getElementById("bmBtn").classList.toggle("active-btn", bms.some(b => b.cfi === cfi));
+    document.getElementById("bmBtn").classList.toggle("active-btn",
+        getBookmarks().some(b => b.cfi === loc.start.cfi));
 }
 function openBookmarks() {
     closeSettings();
@@ -524,42 +544,23 @@ function openBookmarks() {
     const list = document.getElementById("bookmarkList");
     const empty = document.getElementById("bookmarkEmpty");
     list.innerHTML = "";
-    if (bms.length === 0) { empty.style.display = ""; }
-    else {
-        empty.style.display = "none";
-        bms.sort((a,b) => a.pct - b.pct).forEach(bm => {
-            const d = document.createElement("div");
-            d.className = "bm-item";
-            const date = new Date(bm.time).toLocaleDateString("id-ID");
-            d.innerHTML = `<span onclick="jumpToCfi('${bm.cfi}')">📖 ${bm.pct}% &mdash; <small>${date}</small></span>
-                           <button onclick="deleteBookmark('${bm.cfi}')">🗑</button>`;
-            list.appendChild(d);
-        });
-    }
+    if (!bms.length) { empty.style.display = ""; return; }
+    empty.style.display = "none";
+    bms.sort((a,b) => a.pct - b.pct).forEach(bm => {
+        const d = document.createElement("div"); d.className = "bm-item";
+        d.innerHTML = `<span onclick="jumpToCfi('${bm.cfi}')">📖 ${bm.pct}% &mdash; <small>${new Date(bm.time).toLocaleDateString("id-ID")}</small></span>
+                       <button onclick="deleteBookmark('${bm.cfi}')">🗑</button>`;
+        list.appendChild(d);
+    });
     document.getElementById("bookmarkOverlay").classList.add("open");
 }
 function closeBookmarks() { document.getElementById("bookmarkOverlay").classList.remove("open"); }
-function deleteBookmark(cfi) {
-    let bms = getBookmarks().filter(b => b.cfi !== cfi);
-    saveBookmarks(bms);
-    openBookmarks();
-    updateBookmarkBtn();
-}
-function jumpToCfi(cfi) {
-    rendition.display(cfi).catch(() => {});
-    closeBookmarks();
-    closeSearch();
-}
+function deleteBookmark(cfi) { saveBookmarks(getBookmarks().filter(b => b.cfi !== cfi)); openBookmarks(); updateBookmarkBtn(); }
+function jumpToCfi(cfi) { rendition.display(cfi).catch(() => {}); closeBookmarks(); closeSearch(); }
 
-/* ────────────────────────────────────────────
-   SEARCH
-──────────────────────────────────────────── */
+/* ── Search ── */
 let searchDebounce = null;
-function openSearch() {
-    closeSettings();
-    document.getElementById("searchOverlay").classList.add("open");
-    setTimeout(() => document.getElementById("searchInput").focus(), 100);
-}
+function openSearch() { closeSettings(); document.getElementById("searchOverlay").classList.add("open"); setTimeout(() => document.getElementById("searchInput").focus(), 100); }
 function closeSearch() { document.getElementById("searchOverlay").classList.remove("open"); }
 function doSearch() {
     clearTimeout(searchDebounce);
@@ -575,152 +576,87 @@ function doSearch() {
             if (!results.length) { resultsEl.innerHTML = '<div class="search-loading">Tidak ditemukan.</div>'; return; }
             resultsEl.innerHTML = "";
             results.slice(0, 50).forEach(r => {
-                const d = document.createElement("div");
-                d.className = "search-item";
-                const excerpt = r.excerpt.replace(new RegExp(q, "gi"), m => `<mark>${m}</mark>`);
-                d.innerHTML = `<p>${excerpt}</p>`;
+                const d = document.createElement("div"); d.className = "search-item";
+                d.innerHTML = `<p>${r.excerpt.replace(new RegExp(q, "gi"), m => `<mark>${m}</mark>`)}</p>`;
                 d.onclick = () => { rendition.display(r.cfi).catch(() => {}); closeSearch(); };
                 resultsEl.appendChild(d);
             });
-        } catch(e) {
-            resultsEl.innerHTML = '<div class="search-loading">Gagal mencari.</div>';
-        }
+        } catch { resultsEl.innerHTML = '<div class="search-loading">Gagal mencari.</div>'; }
     }, 400);
 }
 
-/* ────────────────────────────────────────────
-   READING STATS
-──────────────────────────────────────────── */
-let sessionStart = Date.now();
-let sessionPages = 0;
-let _statsBuffer = null;
-let _statsFlushTimer = null;
-
+/* ── Stats ── */
+let sessionPages = 0, _statsBuffer = null, _statsFlushTimer = null;
 function trackReadingTime() {
     sessionPages++;
-    const today = new Date().toISOString().slice(0, 10);
-    const statsKey = "stats-" + BOOK_URL;
-
-    if (!_statsBuffer) {
-        try { _statsBuffer = JSON.parse(localStorage.getItem(statsKey) || "{}"); }
-        catch { _statsBuffer = {}; }
-    }
-
+    const today = new Date().toISOString().slice(0,10);
+    const key   = "stats-" + BOOK_URL;
+    if (!_statsBuffer) { try { _statsBuffer = JSON.parse(localStorage.getItem(key) || "{}"); } catch { _statsBuffer = {}; } }
     if (!_statsBuffer[today]) _statsBuffer[today] = { minutes: 0, pages: 0 };
     _statsBuffer[today].pages++;
     if (sessionPages % 3 === 0) _statsBuffer[today].minutes++;
-
-    if (sessionPages % 5 === 0) {
-        _flushStats(statsKey);
-        return;
-    }
-
+    if (sessionPages % 5 === 0) { _flushStats(key); return; }
     clearTimeout(_statsFlushTimer);
-    _statsFlushTimer = setTimeout(() => _flushStats(statsKey), 30000);
+    _statsFlushTimer = setTimeout(() => _flushStats(key), 30000);
 }
-
-function _flushStats(statsKey) {
-    if (!_statsBuffer) return;
-    try { localStorage.setItem(statsKey, JSON.stringify(_statsBuffer)); }
-    catch { }
-}
-
-window.addEventListener("pagehide", () => {
-    if (_statsBuffer) _flushStats("stats-" + BOOK_URL);
-    localStorage.setItem("pct-" + BOOK_URL, currentPct);
-});
-window.addEventListener("beforeunload", () => {
-    if (_statsBuffer) _flushStats("stats-" + BOOK_URL);
-    localStorage.setItem("pct-" + BOOK_URL, currentPct);
-});
+function _flushStats(key) { if (_statsBuffer) try { localStorage.setItem(key, JSON.stringify(_statsBuffer)); } catch {} }
+window.addEventListener("pagehide",     () => { _flushStats("stats-" + BOOK_URL); localStorage.setItem("pct-" + BOOK_URL, currentPct); });
+window.addEventListener("beforeunload", () => { _flushStats("stats-" + BOOK_URL); localStorage.setItem("pct-" + BOOK_URL, currentPct); });
 
 function openStats() {
     closeSettings();
-    const statsKey = "stats-" + BOOK_URL;
-    const stats = _statsBuffer || (() => {
-        try { return JSON.parse(localStorage.getItem(statsKey) || "{}"); } catch { return {}; }
-    })();
-    const keys = Object.keys(stats).sort().reverse();
-    const totalPages = keys.reduce((s,k) => s + (stats[k].pages||0), 0);
-    const totalMin   = keys.reduce((s,k) => s + (stats[k].minutes||0), 0);
-    const streak     = calcStreak(keys);
-    let html = `
-        <div class="stat-card">
-            <div class="stat-num">${currentPct}%</div>
-            <div class="stat-lbl">Progress buku</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-num">${totalPages}</div>
-            <div class="stat-lbl">Halaman dibaca</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-num">${totalMin >= 60 ? Math.floor(totalMin/60)+"j "+totalMin%60+"m" : totalMin+"m"}</div>
-            <div class="stat-lbl">Total waktu</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-num">${streak} 🔥</div>
-            <div class="stat-lbl">Hari berturut</div>
-        </div>
-        <h4 style="margin:16px 0 8px;font-size:13px;color:var(--muted)">RIWAYAT 7 HARI</h4>
-    `;
-    const today = new Date().toISOString().slice(0,10);
+    const key    = "stats-" + BOOK_URL;
+    const stats  = _statsBuffer || (() => { try { return JSON.parse(localStorage.getItem(key) || "{}"); } catch { return {}; } })();
+    const keys   = Object.keys(stats).sort().reverse();
+    const totPg  = keys.reduce((s,k) => s + (stats[k].pages||0), 0);
+    const totMin = keys.reduce((s,k) => s + (stats[k].minutes||0), 0);
+    let html = `<div class="stat-card"><div class="stat-num">${currentPct}%</div><div class="stat-lbl">Progress</div></div>
+                <div class="stat-card"><div class="stat-num">${totPg}</div><div class="stat-lbl">Halaman</div></div>
+                <div class="stat-card"><div class="stat-num">${totMin>=60?Math.floor(totMin/60)+"j "+totMin%60+"m":totMin+"m"}</div><div class="stat-lbl">Waktu</div></div>
+                <div class="stat-card"><div class="stat-num">${calcStreak(keys)} 🔥</div><div class="stat-lbl">Streak</div></div>
+                <h4 style="margin:16px 0 8px;font-size:13px;color:var(--muted)">RIWAYAT 7 HARI</h4>`;
+    const today   = new Date().toISOString().slice(0,10);
+    const maxPg   = Math.max(1, ...keys.map(k => stats[k]?.pages||0));
     for (let i = 0; i < 7; i++) {
-        const d = new Date(); d.setDate(d.getDate() - i);
+        const d  = new Date(); d.setDate(d.getDate()-i);
         const dk = d.toISOString().slice(0,10);
-        const s = stats[dk] || { pages: 0, minutes: 0 };
-        const label = dk === today ? "Hari ini" : d.toLocaleDateString("id-ID", { weekday: "short", day: "numeric", month: "short" });
-        const barW = Math.min(100, (s.pages / Math.max(1, ...keys.map(k => stats[k]?.pages || 0))) * 100);
-        html += `<div class="stat-day">
-            <span class="stat-day-label">${label}</span>
-            <div class="stat-bar-wrap"><div class="stat-bar" style="width:${barW}%"></div></div>
-            <span class="stat-day-val">${s.pages}h</span>
-        </div>`;
+        const s  = stats[dk] || { pages:0 };
+        const lbl = dk===today ? "Hari ini" : d.toLocaleDateString("id-ID",{weekday:"short",day:"numeric",month:"short"});
+        html += `<div class="stat-day"><span class="stat-day-label">${lbl}</span><div class="stat-bar-wrap"><div class="stat-bar" style="width:${Math.min(100,s.pages/maxPg*100)}%"></div></div><span class="stat-day-val">${s.pages}h</span></div>`;
     }
     document.getElementById("statsContent").innerHTML = html;
     document.getElementById("statsOverlay").classList.add("open");
 }
 function closeStats() { document.getElementById("statsOverlay").classList.remove("open"); }
-
-function calcStreak(sortedDaysDesc) {
-    if (!sortedDaysDesc.length) return 0;
-    let streak = 0;
-    const today = new Date().toISOString().slice(0,10);
-    let check = today;
-    for (const day of sortedDaysDesc) {
-        if (day === check) {
-            streak++;
-            const d = new Date(check);
-            d.setDate(d.getDate() - 1);
-            check = d.toISOString().slice(0,10);
-        } else break;
+function calcStreak(desc) {
+    if (!desc.length) return 0;
+    let n = 0, check = new Date().toISOString().slice(0,10);
+    for (const day of desc) {
+        if (day !== check) break;
+        n++;
+        const d = new Date(check); d.setDate(d.getDate()-1); check = d.toISOString().slice(0,10);
     }
-    return streak;
+    return n;
 }
 
-/* ────────────────────────────────────────────
-   NAVIGATION
-──────────────────────────────────────────── */
+/* ── Navigation ── */
 function nextPage() { rendition.next().catch(() => {}); }
 function prevPage() { rendition.prev().catch(() => {}); }
-
 function handleKey(e) {
     if (e.key === "ArrowRight" || e.key === " ") { e.preventDefault(); nextPage(); }
-    if (e.key === "ArrowLeft")                   { e.preventDefault(); prevPage(); }
-    if (e.key === "Escape")                      { window.location.href = "index.php"; }
-    if (e.key === "b" || e.key === "B")          { toggleBookmarkCurrent(); }
-    if (e.key === "f" || e.key === "F")          { openSearch(); }
-    if (e.key === "s" || e.key === "S")          { toggleSwipe(); }
+    if (e.key === "ArrowLeft")  { e.preventDefault(); prevPage(); }
+    if (e.key === "Escape")     { window.location.href = "index.php"; }
+    if (e.key === "b" || e.key === "B") toggleBookmarkCurrent();
+    if (e.key === "f" || e.key === "F") openSearch();
+    if (e.key === "s" || e.key === "S") toggleSwipe();
 }
 document.addEventListener("keydown", handleKey);
 
-/* ────────────────────────────────────────────
-   TOAST
-──────────────────────────────────────────── */
+/* ── Toast ── */
 let toastTimer = null;
 function showToast(msg) {
     const t = document.getElementById("toast");
-    t.textContent = msg;
-    t.classList.add("show");
+    t.textContent = msg; t.classList.add("show");
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => t.classList.remove("show"), 2200);
 }
