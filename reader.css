@@ -156,12 +156,21 @@ html, body {
 
 /* ── SETTINGS DRAWER ── */
 #settingsDrawer {
+  position: absolute;
+  top: var(--toolbar-h);
+  left: 0;
+  right: 0;
+
   background: var(--surface2);
   border-bottom: 1px solid var(--border);
-  max-height: 0; overflow: hidden;
+
+  max-height: 0;
+  overflow: hidden;
+
   transition: max-height 0.3s ease, padding 0.3s ease;
-  flex-shrink: 0;
+
   padding: 0 14px;
+  z-index: 9;
 }
 #settingsDrawer.open {
   max-height: 400px;
