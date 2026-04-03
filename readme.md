@@ -282,4 +282,4 @@ Proses generate lokasi buku (`book.locations.generate`) membutuhkan waktu. Progr
 
 ## Lisensi
 
-MIT License — bebas digunakan, dimodifikasi, dan didistribusikan.
+AGPL-3.0 License
