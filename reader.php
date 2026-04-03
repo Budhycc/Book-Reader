@@ -146,7 +146,6 @@ $name = basename($book, ".epub");
         <button id="sfPrev" class="sf-btn" onclick="prevPage()">
             <span class="sf-arrow">←</span>
             <span class="sf-texts">
-                <!-- <span class="sf-hint">sebelumnya</span> -->
                 <span class="sf-name" id="sfPrevLabel">sebelumnya</span>
             </span>
         </button>
@@ -158,7 +157,6 @@ $name = basename($book, ".epub");
 
         <button id="sfNext" class="sf-btn" onclick="nextPage()">
             <span class="sf-texts sf-texts-right">
-                <!-- <span class="sf-hint">berikutnya</span> -->
                 <span class="sf-name" id="sfNextLabel">berikutnya</span>
             </span>
             <span class="sf-arrow">→</span>
@@ -203,7 +201,7 @@ let lineSpacing = parseFloat(localStorage.getItem("reader-lineSpacing")) || 1.6;
 let margin      = parseInt(localStorage.getItem("reader-margin"))        ?? 4;
 let currentPct  = 0;
 let swipeEnabled = localStorage.getItem("reader-swipe") !== "false";
-let tocItems    = [];   // cache TOC untuk label footer
+let tocItems    = [];
 
 const THEMES = {
     light: { bg: "#ffffff", color: "#1a1a1a" },
@@ -227,6 +225,60 @@ const rendition = book.renderTo("viewer", {
     width: "100%", height: "100%",
     spread: "none", flow: flowMode,
     sandbox: 'allow-same-origin allow-scripts'
+});
+
+/* ────────────────────────────────────────────
+   SETTINGS — apply all at once via a single
+   injected stylesheet. This is the reliable
+   way to style epub.js iframe content.
+──────────────────────────────────────────── */
+function buildCss() {
+    const t = THEMES[theme] || THEMES.light;
+    return `
+        html, body {
+            background: ${t.bg} !important;
+            color: ${t.color} !important;
+        }
+        body {
+            font-family: ${fontFamily} !important;
+            font-size: ${fontSize}% !important;
+            line-height: ${lineSpacing} !important;
+            padding-left: ${margin}% !important;
+            padding-right: ${margin}% !important;
+            margin: 0 !important;
+        }
+        p, div, span, li, td, th, blockquote {
+            line-height: ${lineSpacing} !important;
+        }
+        img, svg {
+            max-width: 100% !important;
+            height: auto !important;
+        }
+    `;
+}
+
+function applySettings() {
+    rendition.themes.default({ "body": {} }); // ensure theme system is init'd
+    rendition.themes.override("background", (THEMES[theme] || THEMES.light).bg);
+    rendition.themes.override("color",      (THEMES[theme] || THEMES.light).color);
+    // inject via addStylesheetRules to all loaded contents
+    rendition.getContents().forEach(contents => {
+        injectCssToContents(contents);
+    });
+}
+
+function injectCssToContents(contents) {
+    if (!contents) return;
+    try {
+        contents.addStylesheetCss(buildCss(), "reader-overrides");
+    } catch(e) {
+        console.warn("injectCss error", e);
+    }
+}
+
+/* Hook into content load so settings apply to every new chapter */
+rendition.hooks.content.register(contents => {
+    injectCssToContents(contents);
 });
 
 applySettings();
@@ -335,12 +387,9 @@ rendition.on("relocated", loc => {
 function updateProgress() {
     try {
         if (!book.locations || !book.locations.percentageFromCfi) return;
-
         const loc = rendition.currentLocation();
         if (!loc?.start) return;
-
         const pct = Math.floor(book.locations.percentageFromCfi(loc.start.cfi) * 100);
-
         currentPct = pct;
         document.getElementById("progress").innerText = pct + "%";
         document.getElementById("progressFill").style.width = pct + "%";
@@ -358,11 +407,9 @@ function syncScrollFooterVisibility() {
     document.getElementById("scrollFooter").classList.toggle("sf-visible", isScrollMode());
 }
 
-/* Cari label TOC yang paling cocok untuk section tertentu */
 function labelForSection(sec) {
     if (!sec) return null;
     const href = (sec.href || "").split("#")[0];
-    // Coba cocokkan exact, lalu partial
     const hit = tocItems.find(t => {
         const th = (t.href || "").split("#")[0];
         return th === href || href.endsWith(th) || th.endsWith(href);
@@ -374,24 +421,17 @@ function updateScrollFooterLabels() {
     try {
         const loc = rendition.currentLocation();
         if (!loc?.start) return;
-
         const spine   = book.spine;
         const section = spine.get(loc.start.cfi);
         if (!section) return;
-
         const prevSec = section.prev ? section.prev() : null;
         const nextSec = section.next ? section.next() : null;
-
-        /* ── tengah: nama chapter aktif ── */
         const curLabel = labelForSection(section);
         const spineItems = spine.spineItems ? spine.spineItems.filter(s => s.linear) : [];
         const total      = spineItems.length;
         const idx        = spineItems.findIndex(s => s.index === section.index) + 1;
-
         document.getElementById("sfChapterName").textContent  = curLabel || "";
         document.getElementById("sfChapterIndex").textContent = total ? `${idx} / ${total}` : "";
-
-        /* ── tombol prev ── */
         const prevBtn   = document.getElementById("sfPrev");
         const prevLblEl = document.getElementById("sfPrevLabel");
         if (prevSec) {
@@ -401,8 +441,6 @@ function updateScrollFooterLabels() {
             prevBtn.disabled    = true;
             prevLblEl.textContent = "Awal buku";
         }
-
-        /* ── tombol next ── */
         const nextBtn   = document.getElementById("sfNext");
         const nextLblEl = document.getElementById("sfNextLabel");
         if (nextSec) {
@@ -418,44 +456,57 @@ function updateScrollFooterLabels() {
 }
 
 /* ────────────────────────────────────────────
-   SETTINGS
+   INDIVIDUAL SETTING FUNCTIONS
+   Each one updates state, saves to localStorage,
+   rebuilds CSS, and re-injects into all iframes.
 ──────────────────────────────────────────── */
-function applySettings() {
-    const t = THEMES[theme] || THEMES.light;
-    rendition.themes.fontSize(fontSize + "%");
-    rendition.themes.font(fontFamily);
-    rendition.themes.override("background",    t.bg);
-    rendition.themes.override("color",         t.color);
-    rendition.themes.override("line-height",   lineSpacing.toString());
-    rendition.themes.override("padding-left",  margin + "%");
-    rendition.themes.override("padding-right", margin + "%");
-    document.body.setAttribute("data-theme", theme);
+
+function reInjectAll() {
+    rendition.getContents().forEach(contents => {
+        injectCssToContents(contents);
+    });
 }
+
 function biggerText()  { setFontSize(fontSize + 10); }
 function smallerText() { setFontSize(fontSize - 10); }
 function resetFont()   { setFontSize(100); }
 function setFontSize(s) {
     fontSize = Math.max(70, Math.min(200, s));
-    rendition.themes.fontSize(fontSize + "%");
     localStorage.setItem("reader-fontSize", fontSize);
+    reInjectAll();
 }
+
 function changeFont(f) {
     fontFamily = f;
-    rendition.themes.font(f);
     localStorage.setItem("reader-fontFamily", f);
+    reInjectAll();
 }
+
 function setLineSpacing(val) {
     lineSpacing = val;
     document.getElementById("lineSpacingVal").textContent = val.toFixed(1);
-    rendition.themes.override("line-height", val.toString());
     localStorage.setItem("reader-lineSpacing", val);
+    reInjectAll();
 }
+
 function setMargin(val) {
     margin = val;
     document.getElementById("marginVal").textContent = val + "%";
-    rendition.themes.override("padding-left",  val + "%");
-    rendition.themes.override("padding-right", val + "%");
     localStorage.setItem("reader-margin", val);
+    reInjectAll();
+}
+
+/* ── Theme ── */
+function setTheme(t) {
+    theme = t;
+    localStorage.setItem("reader-theme", t);
+    document.body.setAttribute("data-theme", t);
+    updateThemeBtns();
+    reInjectAll();
+}
+function updateThemeBtns() {
+    document.querySelectorAll(".theme-btn").forEach(b =>
+        b.classList.toggle("active", b.dataset.theme === theme));
 }
 
 /* ── Swipe ── */
@@ -477,18 +528,6 @@ function updateSwipeBtn() {
         btn.classList.remove("active-btn");
         label.textContent = "Gunakan tombol ◀ ▶ untuk navigasi";
     }
-}
-
-/* ── Theme ── */
-function setTheme(t) {
-    theme = t;
-    localStorage.setItem("reader-theme", t);
-    applySettings();
-    updateThemeBtns();
-}
-function updateThemeBtns() {
-    document.querySelectorAll(".theme-btn").forEach(b =>
-        b.classList.toggle("active", b.dataset.theme === theme));
 }
 
 /* ── Flow ── */
@@ -595,82 +634,50 @@ function closeSearch() { document.getElementById("searchOverlay").classList.remo
 
 async function doSearch() {
     clearTimeout(searchDebounce);
-
     searchDebounce = setTimeout(async () => {
         const q = document.getElementById("searchInput").value.trim().toLowerCase();
         const resultsEl = document.getElementById("searchResults");
         const countEl   = document.getElementById("searchCount");
-
         if (q.length < 2) {
             resultsEl.innerHTML = "";
             countEl.textContent = "";
             return;
         }
-
         resultsEl.innerHTML = '<div class="search-loading">Mencari...</div>';
-
         try {
             let results = [];
-
             await book.ready;
             await book.loaded.spine;
-
             const spineItems = book.spine.spineItems;
-
             for (let item of spineItems) {
                 try {
-                    // 🔥 ambil langsung via backend (INI KUNCINYA)
                     const textRaw = await customRequest(item.href, 'text');
-
                     if (!textRaw) continue;
-
-                    // parse HTML/XHTML
                     const doc = new DOMParser().parseFromString(textRaw, "text/html");
                     const text = doc.body?.textContent?.toLowerCase() || "";
-
                     if (!text) continue;
-
                     let idx = text.indexOf(q);
-
                     if (idx !== -1) {
                         const excerpt = text.substring(Math.max(0, idx - 50), idx + 100);
-
-                        results.push({
-                            cfi: item.cfiBase,
-                            excerpt: excerpt
-                        });
+                        results.push({ cfi: item.cfiBase, excerpt: excerpt });
                     }
-
                 } catch (e) {
                     console.warn("Search error:", item.href, e);
                 }
             }
-
-            countEl.textContent = results.length
-                ? `${results.length} hasil`
-                : "Tidak ditemukan";
-
+            countEl.textContent = results.length ? `${results.length} hasil` : "Tidak ditemukan";
             if (!results.length) {
                 resultsEl.innerHTML = '<div class="search-loading">Tidak ditemukan.</div>';
                 return;
             }
-
             resultsEl.innerHTML = "";
-
             results.forEach(r => {
                 const d = document.createElement("div");
                 d.className = "search-item";
-
                 d.innerHTML = `<p>${r.excerpt.replace(new RegExp(q, "gi"), m => `<mark>${m}</mark>`)}</p>`;
-
-                d.onclick = () => {
-                    rendition.display(r.cfi);
-                    closeSearch();
-                };
-
+                d.onclick = () => { rendition.display(r.cfi); closeSearch(); };
                 resultsEl.appendChild(d);
             });
-
         } catch (e) {
             console.error(e);
             resultsEl.innerHTML = '<div class="search-loading">Gagal mencari.</div>';
