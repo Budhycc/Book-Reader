@@ -113,6 +113,14 @@ $name = basename($book, ".epub");
                 <a class="t-btn" id="downloadBtn" title="Download">⬇ Unduh</a>
             </div>
         </div>
+        <!-- ── SWIPE TOGGLE ── -->
+        <div class="settings-row">
+            <label>Swipe</label>
+            <div class="btn-group">
+                <button class="t-btn" id="swipeToggleBtn" onclick="toggleSwipe()" title="Aktifkan/Matikan swipe">👆 Aktif</button>
+            </div>
+            <span id="swipeStatusLabel" style="font-size:11px;color:var(--muted);margin-left:4px;align-self:center;"></span>
+        </div>
         <div class="settings-row">
             <label>Redup</label>
             <input type="range" id="brightnessSlider" min="0" max="80" value="0" oninput="setBrightness(this.value)">
@@ -177,6 +185,10 @@ let lineSpacing = parseFloat(localStorage.getItem("reader-lineSpacing")) || 1.6;
 let margin      = parseInt(localStorage.getItem("reader-margin"))      ?? 4;
 let currentPct  = 0;
 
+/* ── SWIPE STATE ── */
+// Default: aktif (true). Tersimpan di localStorage per buku agar konsisten.
+let swipeEnabled = localStorage.getItem("reader-swipe") !== "false";
+
 /* ── THEME CONFIGS ── */
 const THEMES = {
     light: { bg: "#ffffff", color: "#1a1a1a" },
@@ -208,6 +220,7 @@ const rendition = book.renderTo("viewer", {
 applySettings();
 updateFlowBtn();
 updateThemeBtns();
+updateSwipeBtn();
 
 /* ── TITLE ── */
 book.loaded.metadata.then(m => {
@@ -226,18 +239,43 @@ book.loaded.navigation.then(toc => {
     document.getElementById("toc").replaceChildren(frag);
 }).catch(() => {});
 
-/* ── SWIPE ── */
+/* ────────────────────────────────────────────
+   SWIPE
+   Setiap kali view di-render ulang, listener
+   swipe dipasang ulang. Jika swipeEnabled=false,
+   handler touchend tidak melakukan apa-apa.
+──────────────────────────────────────────── */
 rendition.on("rendered", (section, view) => {
     try { view.window.addEventListener("keydown", handleKey); } catch {}
+
     const doc = view.document;
     if (!doc) return;
+
     let tx = 0, ty = 0;
-    doc.addEventListener("touchstart", e => { tx = e.touches[0].clientX; ty = e.touches[0].clientY; }, { passive: true });
+    let touchStarted = false;
+
+    doc.addEventListener("touchstart", e => {
+        tx = e.touches[0].clientX;
+        ty = e.touches[0].clientY;
+        touchStarted = true;
+    }, { passive: true });
+
     doc.addEventListener("touchend", e => {
+        if (!touchStarted) return;
+        touchStarted = false;
+
+        // Jika swipe dimatikan, abaikan gerakan
+        if (!swipeEnabled) return;
+
         const dx = e.changedTouches[0].clientX - tx;
         const dy = e.changedTouches[0].clientY - ty;
-        if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.2) dx < 0 ? rendition.next() : rendition.prev();
+
+        // Minimal 40px horizontal, lebih dominan dari vertikal
+        if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.2) {
+            dx < 0 ? rendition.next() : rendition.prev();
+        }
     }, { passive: true });
+
     // Tap tengah layar: toggle toolbar (auto-hide)
     doc.addEventListener("click", e => {
         const w = doc.documentElement.clientWidth;
@@ -246,7 +284,6 @@ rendition.on("rendered", (section, view) => {
 });
 
 /* ── DISPLAY + RESTORE ── */
-/* [PATCH 1] Tampilkan "Menghitung posisi..." saat locations.generate berjalan */
 book.ready
     .then(() => {
         const last = localStorage.getItem(BOOK_KEY);
@@ -264,7 +301,6 @@ book.ready
     });
 
 /* ── RELOCATED ── */
-/* [PATCH 2] Sync pct ke library setiap pindah halaman */
 rendition.on("relocated", loc => {
     localStorage.setItem(BOOK_KEY, loc.start.cfi);
     updateProgress();
@@ -336,6 +372,30 @@ function setMargin(val) {
     rendition.themes.override("padding-left",  val + "%");
     rendition.themes.override("padding-right", val + "%");
     localStorage.setItem("reader-margin", val);
+}
+
+/* ────────────────────────────────────────────
+   SWIPE TOGGLE
+──────────────────────────────────────────── */
+function toggleSwipe() {
+    swipeEnabled = !swipeEnabled;
+    localStorage.setItem("reader-swipe", swipeEnabled ? "true" : "false");
+    updateSwipeBtn();
+    showToast(swipeEnabled ? "Swipe diaktifkan 👆" : "Swipe dinonaktifkan ✋");
+}
+
+function updateSwipeBtn() {
+    const btn   = document.getElementById("swipeToggleBtn");
+    const label = document.getElementById("swipeStatusLabel");
+    if (swipeEnabled) {
+        btn.textContent = "👆 Aktif";
+        btn.classList.add("active-btn");
+        label.textContent = "Geser kiri/kanan untuk berpindah halaman";
+    } else {
+        btn.textContent = "✋ Nonaktif";
+        btn.classList.remove("active-btn");
+        label.textContent = "Gunakan tombol ◀ ▶ untuk navigasi";
+    }
 }
 
 /* ────────────────────────────────────────────
@@ -529,9 +589,7 @@ function doSearch() {
 }
 
 /* ────────────────────────────────────────────
-   READING STATS — [PATCH 3] Throttled localStorage writes
-   Sebelumnya: write setiap halaman (boros I/O)
-   Sekarang: buffer di memory, flush tiap 5 halaman atau 30 detik
+   READING STATS
 ──────────────────────────────────────────── */
 let sessionStart = Date.now();
 let sessionPages = 0;
@@ -543,7 +601,6 @@ function trackReadingTime() {
     const today = new Date().toISOString().slice(0, 10);
     const statsKey = "stats-" + BOOK_URL;
 
-    // Inisialisasi buffer dari localStorage hanya sekali per sesi
     if (!_statsBuffer) {
         try { _statsBuffer = JSON.parse(localStorage.getItem(statsKey) || "{}"); }
         catch { _statsBuffer = {}; }
@@ -553,13 +610,11 @@ function trackReadingTime() {
     _statsBuffer[today].pages++;
     if (sessionPages % 3 === 0) _statsBuffer[today].minutes++;
 
-    // Flush ke localStorage setiap 5 halaman
     if (sessionPages % 5 === 0) {
         _flushStats(statsKey);
         return;
     }
 
-    // Atau flush setelah idle 30 detik
     clearTimeout(_statsFlushTimer);
     _statsFlushTimer = setTimeout(() => _flushStats(statsKey), 30000);
 }
@@ -567,10 +622,9 @@ function trackReadingTime() {
 function _flushStats(statsKey) {
     if (!_statsBuffer) return;
     try { localStorage.setItem(statsKey, JSON.stringify(_statsBuffer)); }
-    catch { /* localStorage penuh, abaikan */ }
+    catch { }
 }
 
-// Pastikan data tersimpan saat user menutup tab / navigasi keluar
 window.addEventListener("pagehide", () => {
     if (_statsBuffer) _flushStats("stats-" + BOOK_URL);
     localStorage.setItem("pct-" + BOOK_URL, currentPct);
@@ -583,7 +637,6 @@ window.addEventListener("beforeunload", () => {
 function openStats() {
     closeSettings();
     const statsKey = "stats-" + BOOK_URL;
-    // Baca dari buffer (in-memory) jika ada, supaya data terbaru tampil
     const stats = _statsBuffer || (() => {
         try { return JSON.parse(localStorage.getItem(statsKey) || "{}"); } catch { return {}; }
     })();
@@ -656,6 +709,7 @@ function handleKey(e) {
     if (e.key === "Escape")                      { window.location.href = "index.php"; }
     if (e.key === "b" || e.key === "B")          { toggleBookmarkCurrent(); }
     if (e.key === "f" || e.key === "F")          { openSearch(); }
+    if (e.key === "s" || e.key === "S")          { toggleSwipe(); }
 }
 document.addEventListener("keydown", handleKey);
 
