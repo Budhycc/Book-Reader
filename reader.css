@@ -162,7 +162,7 @@ html, body {
   right: 0;
 
   background: var(--surface2);
-  border-bottom: 1px solid var(--border);
+  border-bottom: none;
 
   max-height: 0;
   overflow: hidden;
@@ -175,6 +175,7 @@ html, body {
 #settingsDrawer.open {
   max-height: 400px;
   padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
 }
 .settings-row {
   display: flex; align-items: center;
