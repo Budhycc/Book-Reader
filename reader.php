@@ -16,10 +16,11 @@ $name = basename($book, ".epub");
     <script src="js/jszip.min.js"></script>
     <script src="js/epub.min.js"></script>
     <link rel="stylesheet" href="reader.css">
+    <link rel="stylesheet" href="translate-reader.css">
 </head>
 <body>
 
-<div id="loadingScreen">
+<div id="loadingScreen" class="notranslate">
     <div class="spinner"></div>
     <div>Membuka buku...</div>
 </div>
@@ -27,7 +28,7 @@ $name = basename($book, ".epub");
 <div id="brightnessOverlay"></div>
 
 <!-- Search overlay -->
-<div id="searchOverlay" class="overlay-panel">
+<div id="searchOverlay" class="overlay-panel notranslate">
     <div class="overlay-header">
         <span>🔍 Cari Teks</span>
         <button onclick="closeSearch()">✕</button>
@@ -40,7 +41,7 @@ $name = basename($book, ".epub");
 </div>
 
 <!-- Bookmark overlay -->
-<div id="bookmarkOverlay" class="overlay-panel">
+<div id="bookmarkOverlay" class="overlay-panel notranslate">
     <div class="overlay-header">
         <span>🔖 Bookmark</span>
         <button onclick="closeBookmarks()">✕</button>
@@ -50,7 +51,7 @@ $name = basename($book, ".epub");
 </div>
 
 <!-- Stats overlay -->
-<div id="statsOverlay" class="overlay-panel">
+<div id="statsOverlay" class="overlay-panel notranslate">
     <div class="overlay-header">
         <span>📊 Statistik Baca</span>
         <button onclick="closeStats()">✕</button>
@@ -58,7 +59,109 @@ $name = basename($book, ".epub");
     <div id="statsContent"></div>
 </div>
 
-<div id="app">
+<!-- ═══════════════════════════════════════
+     TRANSLATE ELEMENTS
+═══════════════════════════════════════ -->
+<!-- Bubble muncul saat teks dipilih -->
+<div id="translateBubble" class="notranslate">
+    <button class="bubble-btn" id="bubbleTranslate" onclick="openTranslateFromBubble()">
+        🌐 Terjemahkan
+    </button>
+    <div class="bubble-divider"></div>
+    <button class="bubble-btn" id="bubbleCopy" onclick="copySelectedFromBubble()">
+        📋 Salin
+    </button>
+</div>
+
+<!-- Backdrop gelap -->
+<div id="translateBackdrop" class="notranslate" onclick="closeTranslatePanel()"></div>
+
+<!-- Panel terjemahan (slide dari bawah) -->
+<div id="translateOverlay" class="notranslate">
+    <div class="tl-handle"></div>
+    <div class="tl-header">
+        <span class="tl-title">🌐 Terjemahan</span>
+        <button class="tl-close" onclick="closeTranslatePanel()">✕</button>
+    </div>
+    <div class="tl-controls">
+        <div class="tl-lang-wrap">
+            <select id="tlSource">
+                <option value="auto">Auto Detect</option>
+                <option value="en">English</option>
+                <option value="id">Indonesia</option>
+                <option value="ms">Melayu</option>
+                <option value="ar">العربية</option>
+                <option value="zh-CN">中文(简)</option>
+                <option value="zh-TW">中文(繁)</option>
+                <option value="ja">日本語</option>
+                <option value="ko">한국어</option>
+                <option value="fr">Français</option>
+                <option value="de">Deutsch</option>
+                <option value="es">Español</option>
+                <option value="pt">Português</option>
+                <option value="ru">Русский</option>
+                <option value="nl">Nederlands</option>
+                <option value="it">Italiano</option>
+                <option value="tr">Türkçe</option>
+                <option value="th">ภาษาไทย</option>
+                <option value="vi">Tiếng Việt</option>
+                <option value="pl">Polski</option>
+                <option value="hi">हिन्दी</option>
+            </select>
+        </div>
+        <span class="tl-arrow">→</span>
+        <div class="tl-lang-wrap">
+            <select id="tlTarget">
+                <option value="id">Indonesia</option>
+                <option value="en">English</option>
+                <option value="ms">Melayu</option>
+                <option value="ar">العربية</option>
+                <option value="zh-CN">中文(简)</option>
+                <option value="zh-TW">中文(繁)</option>
+                <option value="ja">日本語</option>
+                <option value="ko">한국어</option>
+                <option value="fr">Français</option>
+                <option value="de">Deutsch</option>
+                <option value="es">Español</option>
+                <option value="pt">Português</option>
+                <option value="ru">Русский</option>
+                <option value="nl">Nederlands</option>
+                <option value="it">Italiano</option>
+                <option value="tr">Türkçe</option>
+                <option value="th">ภาษาไทย</option>
+                <option value="vi">Tiếng Việt</option>
+                <option value="pl">Polski</option>
+                <option value="hi">हिन्दी</option>
+                <option value="sv">Svenska</option>
+                <option value="da">Dansk</option>
+                <option value="fi">Suomi</option>
+                <option value="no">Norsk</option>
+            </select>
+        </div>
+        <button class="tl-swap-btn" onclick="swapLanguages()" title="Tukar bahasa">⇄</button>
+        <button class="tl-retranslate" onclick="doTranslate()">↺ Ulangi</button>
+    </div>
+    <div class="tl-body">
+        <div>
+            <div class="tl-section-label">Teks Asli</div>
+            <div class="tl-source-box" id="tlSourceText"></div>
+        </div>
+        <div>
+            <div class="tl-section-label">Terjemahan</div>
+            <div class="tl-result-box" id="tlResultText">
+                <span style="color:var(--muted);font-size:13px;">Hasil terjemahan muncul di sini…</span>
+            </div>
+        </div>
+    </div>
+    <div class="tl-actions">
+        <button class="tl-action-btn" onclick="copyTranslation()">📋 Salin Terjemahan</button>
+        <button class="tl-action-btn" onclick="speakTranslation()">🔊 Dengarkan</button>
+        <button class="tl-action-btn" onclick="copySourceText()">📄 Salin Asli</button>
+    </div>
+</div>
+<!-- ═══════════════════════════════════════ -->
+
+<div id="app" class="notranslate">
 
     <div class="toolbar" id="toolbar">
         <button class="t-btn" onclick="toggleSidebar()" title="Chapters">☰</button>
@@ -68,7 +171,9 @@ $name = basename($book, ".epub");
         <span id="bookTitle"></span>
         <span id="progress"></span>
         <button class="t-btn" onclick="toggleBookmarkCurrent()" id="bmBtn" title="Bookmark">🔖</button>
-        <button class="t-btn" onclick="openSearch()" title="Cari">🔍</button>
+        <button class="t-btn hidden-mobile" onclick="openSearch()" title="Cari">🔍</button>
+        <button class="t-btn" onclick="translateFullPage()" title="Terjemahkan halaman penuh">🌐</button>
+        <button class="t-btn" onclick="revertTranslate()" title="Batalkan terjemahan">↶</button>
         <button class="t-btn" onclick="toggleSettings()" title="Pengaturan">⚙</button>
     </div>
 
@@ -133,6 +238,55 @@ $name = basename($book, ".epub");
                    oninput="setMargin(parseInt(this.value))">
             <span id="marginVal" class="slider-val">4%</span>
         </div>
+        <div class="settings-row">
+            <label>Translate</label>
+            <div class="btn-group">
+                <button class="t-btn" onclick="openTranslatePanel(_tlSelectedText || '')">🌐 Teks</button>
+                <button class="t-btn" onclick="translateFullPage()">🌐 Page</button>
+            </div>
+        </div>
+        <div class="settings-row">
+            <label>Bahasa</label>
+            <select id="fullPageLang" onchange="updateFullPageLang()">
+                <option value="id">ID</option>
+                <option value="en">EN</option>
+                <option value="ms">MS</option>
+                <option value="ar">AR</option>
+                <option value="zh-CN">ZH-CN</option>
+                <option value="zh-TW">ZH-TW</option>
+                <option value="ja">JA</option>
+                <option value="ko">KO</option>
+                <option value="fr">FR</option>
+                <option value="de">DE</option>
+                <option value="es">ES</option>
+                <option value="pt">PT</option>
+                <option value="ru">RU</option>
+                <option value="nl">NL</option>
+                <option value="it">IT</option>
+                <option value="tr">TR</option>
+                <option value="th">TH</option>
+                <option value="vi">VI</option>
+                <option value="pl">PL</option>
+                <option value="hi">HI</option>
+                <option value="sv">SV</option>
+                <option value="da">DA</option>
+                <option value="fi">FI</option>
+                <option value="no">NO</option>
+                <option value="cs">CS</option>
+                <option value="ro">RO</option>
+                <option value="hu">HU</option>
+                <option value="sk">SK</option>
+                <option value="bg">BG</option>
+                <option value="uk">UK</option>
+                <option value="hr">HR</option>
+                <option value="lt">LT</option>
+                <option value="lv">LV</option>
+                <option value="et">ET</option>
+                <option value="sl">SL</option>
+                <option value="sq">SQ</option>
+                <option value="mk">MK</option>
+            </select>
+        </div>
         <div class="settings-row actions-row">
             <button class="action-btn" onclick="openBookmarks()">🔖 Bookmark</button>
             <button class="action-btn" onclick="openStats()">📊 Statistik</button>
@@ -165,8 +319,8 @@ $name = basename($book, ".epub");
 
 </div>
 
-<div id="sidebarBackdrop" onclick="closeSidebar()"></div>
-<div id="sidebar">
+<div id="sidebarBackdrop" class="notranslate" onclick="closeSidebar()"></div>
+<div id="sidebar" class="notranslate">
     <div id="sidebarHeader">
         <span>📑 Chapters</span>
         <button onclick="closeSidebar()">✕</button>
@@ -174,7 +328,7 @@ $name = basename($book, ".epub");
     <div id="toc"></div>
 </div>
 
-<div id="toast"></div>
+<div id="toast" class="notranslate"></div>
 
 <script>
 const BOOK_URL = <?= json_encode($book) ?>;
@@ -192,6 +346,75 @@ const customRequest = (url, type) => {
     });
 };
 
+/* ── TRANSLATE FUNCTIONS ── */
+
+async function translateFullPage() {
+    const target = fullPageLang;
+    showToast('Menerjemahkan halaman...');
+    try {
+        const contents = rendition.getContents();
+        if (!originalContents) {
+            originalContents = contents.map(c => c.document.body.innerHTML);
+        }
+        for (let content of contents) {
+            const doc = content.document;
+            await translateElement(doc.body, target);
+        }
+        showToast('Halaman diterjemahkan');
+    } catch (e) {
+        showToast('Gagal menerjemahkan');
+        console.error(e);
+    }
+}
+
+function revertTranslate() {
+    if (!originalContents) {
+        showToast('Belum ada terjemahan untuk dibatalkan');
+        return;
+    }
+    const contents = rendition.getContents();
+    contents.forEach((content, i) => {
+        if (originalContents[i]) {
+            content.document.body.innerHTML = originalContents[i];
+            injectCssToContents(content); // Re-inject CSS
+        }
+    });
+    originalContents = null;
+    showToast('Terjemahan dibatalkan');
+}
+
+async function translateElement(element, target) {
+    const promises = [];
+    for (let node of element.childNodes) {
+        if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) {
+            promises.push(translateTextNode(node, target));
+        } else if (node.nodeType === Node.ELEMENT_NODE && !node.classList.contains('notranslate')) {
+            promises.push(translateElement(node, target));
+        }
+    }
+    await Promise.all(promises);
+}
+
+async function translateTextNode(node, target) {
+    const text = node.textContent;
+    const translated = await translateText(text, target);
+    node.textContent = translated;
+}
+
+async function translateText(text, target) {
+    try {
+        const res = await fetch('translate.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text, source: 'auto', target })
+        });
+        const data = await res.json();
+        return data.ok ? data.translation : text;
+    } catch {
+        return text;
+    }
+}
+
 /* ── STATE ── */
 let fontSize    = parseInt(localStorage.getItem("reader-fontSize"))      || 100;
 let fontFamily  = localStorage.getItem("reader-fontFamily")              || "serif";
@@ -202,6 +425,8 @@ let margin      = parseInt(localStorage.getItem("reader-margin"))        ?? 4;
 let currentPct  = 0;
 let swipeEnabled = localStorage.getItem("reader-swipe") !== "false";
 let tocItems    = [];
+let fullPageLang = localStorage.getItem("reader-fullPageLang") || "id";
+let originalContents = null;
 
 const THEMES = {
     light: { bg: "#ffffff", color: "#1a1a1a" },
@@ -215,6 +440,7 @@ document.getElementById("lineSpacingSlider").value = lineSpacing;
 document.getElementById("lineSpacingVal").textContent = lineSpacing.toFixed(1);
 document.getElementById("marginSlider").value = margin;
 document.getElementById("marginVal").textContent = margin + "%";
+document.getElementById("fullPageLang").value = fullPageLang;
 const dlBtn = document.getElementById("downloadBtn");
 dlBtn.href = BOOK_URL;
 dlBtn.setAttribute("download", BOOK_URL.split("/").pop());
@@ -227,11 +453,6 @@ const rendition = book.renderTo("viewer", {
     sandbox: 'allow-same-origin allow-scripts'
 });
 
-/* ────────────────────────────────────────────
-   SETTINGS — apply all at once via a single
-   injected stylesheet. This is the reliable
-   way to style epub.js iframe content.
-──────────────────────────────────────────── */
 function buildCss() {
     const t = THEMES[theme] || THEMES.light;
     return `
@@ -258,10 +479,9 @@ function buildCss() {
 }
 
 function applySettings() {
-    rendition.themes.default({ "body": {} }); // ensure theme system is init'd
+    rendition.themes.default({ "body": {} });
     rendition.themes.override("background", (THEMES[theme] || THEMES.light).bg);
     rendition.themes.override("color",      (THEMES[theme] || THEMES.light).color);
-    // inject via addStylesheetRules to all loaded contents
     rendition.getContents().forEach(contents => {
         injectCssToContents(contents);
     });
@@ -276,7 +496,6 @@ function injectCssToContents(contents) {
     }
 }
 
-/* Hook into content load so settings apply to every new chapter */
 rendition.hooks.content.register(contents => {
     injectCssToContents(contents);
 });
@@ -305,11 +524,13 @@ book.loaded.navigation.then(toc => {
     document.getElementById("toc").replaceChildren(frag);
 }).catch(() => {});
 
-/* ── RENDERED (swipe + tap) ── */
+/* ── RENDERED (swipe + tap + translate selection) ── */
 rendition.on("rendered", (section, view) => {
     try { view.window.addEventListener("keydown", handleKey); } catch {}
     const doc = view.document;
     if (!doc) return;
+
+    /* Swipe + tap */
     let tx = 0, ty = 0, tStarted = false;
     doc.addEventListener("touchstart", e => {
         tx = e.touches[0].clientX; ty = e.touches[0].clientY; tStarted = true;
@@ -326,6 +547,25 @@ rendition.on("rendered", (section, view) => {
         const w = doc.documentElement.clientWidth;
         if (e.clientX > w * 0.3 && e.clientX < w * 0.7) toggleToolbarVisibility();
     });
+
+    /* Selection → translate bubble */
+    const onSelChange = () => {
+        try {
+            const sel = doc.getSelection();
+            const txt = sel?.toString().trim();
+            if (!txt || txt.length < 2) { _hideBubble(); return; }
+            if (sel.rangeCount > 0) {
+                const rect = sel.getRangeAt(0).getBoundingClientRect();
+                const iframeRect = view.element?.getBoundingClientRect() || { left: 0, top: 0 };
+                const screenX = rect.left + iframeRect.left + rect.width / 2;
+                const screenY = rect.bottom + iframeRect.top + 60;
+                _showBubbleAt(screenX - 90, screenY, txt);
+            }
+        } catch(e) {
+            console.warn('translate selection error', e);
+        }
+    };
+    doc.addEventListener('selectionchange', onSelChange, { passive: true });
 });
 
 /* ── DISPLAY + RESTORE ── */
@@ -378,12 +618,11 @@ rendition.on("relocated", loc => {
     localStorage.setItem("pct-" + BOOK_URL, currentPct);
     updateBookmarkBtn();
     trackReadingTime();
+    originalContents = null; // reset translate state per page
     if (isScrollMode()) updateScrollFooterLabels();
 });
 
-/* ────────────────────────────────────────────
-   PROGRESS BAR
-──────────────────────────────────────────── */
+/* ── PROGRESS BAR ── */
 function updateProgress() {
     try {
         if (!book.locations || !book.locations.percentageFromCfi) return;
@@ -396,9 +635,7 @@ function updateProgress() {
     } catch {}
 }
 
-/* ────────────────────────────────────────────
-   SCROLL-MODE FOOTER
-──────────────────────────────────────────── */
+/* ── SCROLL FOOTER ── */
 function isScrollMode() {
     return flowMode === "scrolled-doc" || flowMode === "scrolled-continuous" || flowMode === "scrolled";
 }
@@ -455,12 +692,7 @@ function updateScrollFooterLabels() {
     }
 }
 
-/* ────────────────────────────────────────────
-   INDIVIDUAL SETTING FUNCTIONS
-   Each one updates state, saves to localStorage,
-   rebuilds CSS, and re-injects into all iframes.
-──────────────────────────────────────────── */
-
+/* ── SETTINGS ── */
 function reInjectAll() {
     rendition.getContents().forEach(contents => {
         injectCssToContents(contents);
@@ -482,6 +714,11 @@ function changeFont(f) {
     reInjectAll();
 }
 
+function updateFullPageLang() {
+    fullPageLang = document.getElementById("fullPageLang").value;
+    localStorage.setItem("reader-fullPageLang", fullPageLang);
+}
+
 function setLineSpacing(val) {
     lineSpacing = val;
     document.getElementById("lineSpacingVal").textContent = val.toFixed(1);
@@ -496,7 +733,6 @@ function setMargin(val) {
     reInjectAll();
 }
 
-/* ── Theme ── */
 function setTheme(t) {
     theme = t;
     localStorage.setItem("reader-theme", t);
@@ -509,7 +745,6 @@ function updateThemeBtns() {
         b.classList.toggle("active", b.dataset.theme === theme));
 }
 
-/* ── Swipe ── */
 function toggleSwipe() {
     swipeEnabled = !swipeEnabled;
     localStorage.setItem("reader-swipe", swipeEnabled ? "true" : "false");
@@ -530,7 +765,6 @@ function updateSwipeBtn() {
     }
 }
 
-/* ── Flow ── */
 function toggleFlow() {
     flowMode = flowMode === "paginated" ? "scrolled-doc" : "paginated";
     localStorage.setItem("reader-flow", flowMode);
@@ -546,7 +780,6 @@ function updateFlowBtn() {
         flowMode === "paginated" ? "📄 Scroll" : "📖 Halaman";
 }
 
-/* ── Brightness ── */
 function setBrightness(val) {
     document.getElementById("brightnessOverlay").style.opacity = val / 100;
 }
@@ -745,10 +978,19 @@ function prevPage() { rendition.prev().catch(() => {}); }
 function handleKey(e) {
     if (e.key === "ArrowRight" || e.key === " ") { e.preventDefault(); nextPage(); }
     if (e.key === "ArrowLeft")  { e.preventDefault(); prevPage(); }
-    if (e.key === "Escape")     { window.location.href = "index.php"; }
+    if (e.key === "Escape")     {
+        if (document.getElementById("translateOverlay").classList.contains("open")) {
+            closeTranslatePanel(); return;
+        }
+        window.location.href = "index.php";
+    }
     if (e.key === "b" || e.key === "B") toggleBookmarkCurrent();
     if (e.key === "f" || e.key === "F") openSearch();
     if (e.key === "s" || e.key === "S") toggleSwipe();
+    if (e.key === "t" || e.key === "T") {
+        if (_tlSelectedText) openTranslatePanel(_tlSelectedText);
+        else showToast("Pilih teks dulu untuk menerjemahkan 🌐");
+    }
 }
 document.addEventListener("keydown", handleKey);
 
@@ -760,6 +1002,179 @@ function showToast(msg) {
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => t.classList.remove("show"), 2200);
 }
+
+
+/* ════════════════════════════════════════════════════
+   TRANSLATE MODULE
+   ════════════════════════════════════════════════════ */
+
+let _tlSelectedText  = '';
+let _tlLastResult    = '';
+let _bubbleHideTimer = null;
+
+/* Restore preferensi bahasa */
+const _tlSourceSel = document.getElementById('tlSource');
+const _tlTargetSel = document.getElementById('tlTarget');
+_tlSourceSel.value = localStorage.getItem('tl-source') || 'auto';
+_tlTargetSel.value = localStorage.getItem('tl-target') || 'id';
+_tlSourceSel.addEventListener('change', () => {
+    localStorage.setItem('tl-source', _tlSourceSel.value);
+    if (_tlSelectedText) doTranslate();
+});
+_tlTargetSel.addEventListener('change', () => {
+    localStorage.setItem('tl-target', _tlTargetSel.value);
+    if (_tlSelectedText) doTranslate();
+});
+
+/* Swap bahasa */
+function swapLanguages() {
+    const s = _tlSourceSel.value === 'auto' ? 'en' : _tlSourceSel.value;
+    const t = _tlTargetSel.value;
+    _tlSourceSel.value = t;
+    _tlTargetSel.value = s;
+    localStorage.setItem('tl-source', _tlSourceSel.value);
+    localStorage.setItem('tl-target', _tlTargetSel.value);
+    if (_tlSelectedText) doTranslate();
+}
+
+/* Bubble */
+const _bubble = document.getElementById('translateBubble');
+
+function _showBubbleAt(x, y, text) {
+    clearTimeout(_bubbleHideTimer);
+    _tlSelectedText = text;
+    /* Klem agar tidak keluar layar */
+    const bw = 220; // perkiraan lebar bubble
+    const bx = Math.max(8, Math.min(x, window.innerWidth - bw - 8));
+    const by = Math.max(8, y - 50);
+    _bubble.style.left = bx + 'px';
+    _bubble.style.top  = by + 'px';
+    _bubble.classList.add('visible');
+}
+
+function _hideBubble() {
+    _bubbleHideTimer = setTimeout(() => _bubble.classList.remove('visible'), 200);
+}
+
+/* Sembunyikan saat klik di luar */
+document.addEventListener('mousedown', e => {
+    if (!_bubble.contains(e.target)) _hideBubble();
+});
+document.addEventListener('touchstart', e => {
+    if (!_bubble.contains(e.target)) _hideBubble();
+}, { passive: true });
+
+/* Aksi bubble */
+function openTranslateFromBubble() {
+    _hideBubble();
+    if (!_tlSelectedText) return;
+    openTranslatePanel(_tlSelectedText);
+}
+
+function copySelectedFromBubble() {
+    if (!_tlSelectedText) return;
+    _copyText(_tlSelectedText);
+    showToast('Teks disalin 📋');
+    _hideBubble();
+}
+
+/* Buka panel */
+function openTranslatePanel(text) {
+    if (text) _tlSelectedText = text;
+    if (!_tlSelectedText) {
+        showToast('Pilih teks dulu');
+        return;
+    }
+    document.getElementById('tlSourceText').textContent = _tlSelectedText;
+    document.getElementById('tlResultText').innerHTML =
+        '<span style="color:var(--muted);font-size:13px;">Menerjemahkan…</span>';
+    document.getElementById('translateOverlay').classList.add('open');
+    document.getElementById('translateBackdrop').classList.add('open');
+    doTranslate();
+}
+
+function closeTranslatePanel() {
+    document.getElementById('translateOverlay').classList.remove('open');
+    document.getElementById('translateBackdrop').classList.remove('open');
+}
+
+/* Terjemahkan via proxy */
+async function doTranslate() {
+    const text   = _tlSelectedText;
+    const source = _tlSourceSel.value;
+    const target = _tlTargetSel.value;
+    if (!text) return;
+
+    const resultEl = document.getElementById('tlResultText');
+    resultEl.classList.add('loading');
+    resultEl.innerHTML = '';
+    _tlLastResult = '';
+
+    try {
+        const res = await fetch('translate.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text, source, target })
+        });
+
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        resultEl.classList.remove('loading');
+
+        if (data.ok && data.translation) {
+            _tlLastResult = data.translation;
+            resultEl.textContent = data.translation;
+        } else {
+            resultEl.innerHTML =
+                `<span style="color:#e05555">⚠ ${data.error || 'Terjemahan gagal. Coba lagi.'}</span>`;
+        }
+    } catch(err) {
+        resultEl.classList.remove('loading');
+        resultEl.innerHTML =
+            `<span style="color:#e05555">⚠ Jaringan error. Pastikan server aktif.</span>`;
+        console.error('translate error', err);
+    }
+}
+
+/* Aksi panel */
+function copyTranslation() {
+    if (!_tlLastResult) { showToast('Belum ada terjemahan'); return; }
+    _copyText(_tlLastResult);
+    showToast('Terjemahan disalin 📋');
+}
+function copySourceText() {
+    if (!_tlSelectedText) return;
+    _copyText(_tlSelectedText);
+    showToast('Teks asli disalin 📄');
+}
+function speakTranslation() {
+    if (!_tlLastResult) { showToast('Belum ada terjemahan'); return; }
+    if (!window.speechSynthesis) { showToast('Browser tidak mendukung TTS'); return; }
+    const utter = new SpeechSynthesisUtterance(_tlLastResult);
+    utter.lang = _tlTargetSel.value.split('-')[0];
+    speechSynthesis.cancel();
+    speechSynthesis.speak(utter);
+    showToast('🔊 Memutar audio…');
+}
+
+/* Clipboard */
+function _copyText(str) {
+    if (navigator.clipboard?.writeText) {
+        navigator.clipboard.writeText(str).catch(() => _fallbackCopy(str));
+    } else {
+        _fallbackCopy(str);
+    }
+}
+function _fallbackCopy(str) {
+    const ta = document.createElement('textarea');
+    ta.value = str;
+    ta.style.cssText = 'position:fixed;opacity:0;pointer-events:none';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); } catch {}
+    ta.remove();
+}
+
 </script>
 </body>
 </html>
