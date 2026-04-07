@@ -47,20 +47,13 @@ if ($source !== 'auto' && !in_array($source, $allowed, true)) {
     $source = 'auto';
 }
 
-/* ── Kirim ke deep-translator API ── */
-$apiUrl  = 'https://deep-translator-api.azurewebsites.net/translate';
-$payload = json_encode([
-    'text'        => $text,
-    'source'      => $source,
-    'target'      => $target,
-    'translator'  => 'google',   // google translator (gratis, tanpa API key)
-]);
+/* ── Kirim ke Google Translate API (unofficial) ── */
+$apiUrl = 'https://translate.googleapis.com/translate_a/single?client=gtx&sl=' . urlencode($source) . '&tl=' . urlencode($target) . '&dt=t&q=' . urlencode($text);
 
 $ctx = stream_context_create([
     'http' => [
-        'method'        => 'POST',
-        'header'        => "Content-Type: application/json\r\nAccept: application/json\r\n",
-        'content'       => $payload,
+        'method'        => 'GET',
+        'header'        => "Accept: application/json\r\n",
         'timeout'       => 15,
         'ignore_errors' => true,
     ]
@@ -76,41 +69,32 @@ if (isset($http_response_header)) {
     }
 }
 
-/* ── Fallback: coba endpoint alternatif jika gagal ── */
-if ($response === false || $httpCode >= 500) {
+/* ── Fallback jika gagal ── */
+if ($response === false || $httpCode >= 400) {
     http_response_code(502);
     echo json_encode(['ok' => false, 'error' => 'API tidak merespons. Coba lagi.']);
     exit;
 }
 
-/* ── Teruskan respons API ── */
+/* ── Parse respons Google Translate ── */
 $data = json_decode($response, true);
-if (!$data) {
+if (!$data || !isset($data[0][0][0])) {
     http_response_code(502);
     echo json_encode(['ok' => false, 'error' => 'Respons API tidak valid']);
     exit;
 }
 
-// Normalisasi respons: pastikan field 'translation' ada
-// deep-translator API mengembalikan { "translation": "..." }
-if (isset($data['translation'])) {
-    echo json_encode([
-        'ok'          => true,
-        'translation' => $data['translation'],
-        'source'      => $source,
-        'target'      => $target,
-    ]);
-} elseif (isset($data['translated_text'])) {
-    echo json_encode([
-        'ok'          => true,
-        'translation' => $data['translated_text'],
-        'source'      => $source,
-        'target'      => $target,
-    ]);
-} elseif ($httpCode >= 400) {
-    http_response_code($httpCode);
-    echo json_encode(['ok' => false, 'error' => $data['detail'] ?? 'Terjemahan gagal']);
-} else {
-    // Teruskan apa adanya jika strukturnya berbeda
-    echo $response;
+// Ekstrak terjemahan
+$translation = '';
+foreach ($data[0] as $part) {
+    if (isset($part[0])) {
+        $translation .= $part[0];
+    }
 }
+
+echo json_encode([
+    'ok'          => true,
+    'translation' => $translation,
+    'source'      => $source,
+    'target'      => $target,
+]);
