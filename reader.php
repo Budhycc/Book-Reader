@@ -20,7 +20,7 @@ $name = basename($book, ".epub");
 </head>
 <body>
 
-<div id="loadingScreen">
+<div id="loadingScreen" class="notranslate">
     <div class="spinner"></div>
     <div>Membuka buku...</div>
 </div>
@@ -28,7 +28,7 @@ $name = basename($book, ".epub");
 <div id="brightnessOverlay"></div>
 
 <!-- Search overlay -->
-<div id="searchOverlay" class="overlay-panel">
+<div id="searchOverlay" class="overlay-panel notranslate">
     <div class="overlay-header">
         <span>🔍 Cari Teks</span>
         <button onclick="closeSearch()">✕</button>
@@ -41,7 +41,7 @@ $name = basename($book, ".epub");
 </div>
 
 <!-- Bookmark overlay -->
-<div id="bookmarkOverlay" class="overlay-panel">
+<div id="bookmarkOverlay" class="overlay-panel notranslate">
     <div class="overlay-header">
         <span>🔖 Bookmark</span>
         <button onclick="closeBookmarks()">✕</button>
@@ -51,7 +51,7 @@ $name = basename($book, ".epub");
 </div>
 
 <!-- Stats overlay -->
-<div id="statsOverlay" class="overlay-panel">
+<div id="statsOverlay" class="overlay-panel notranslate">
     <div class="overlay-header">
         <span>📊 Statistik Baca</span>
         <button onclick="closeStats()">✕</button>
@@ -63,7 +63,7 @@ $name = basename($book, ".epub");
      TRANSLATE ELEMENTS
 ═══════════════════════════════════════ -->
 <!-- Bubble muncul saat teks dipilih -->
-<div id="translateBubble">
+<div id="translateBubble" class="notranslate">
     <button class="bubble-btn" id="bubbleTranslate" onclick="openTranslateFromBubble()">
         🌐 Terjemahkan
     </button>
@@ -74,10 +74,10 @@ $name = basename($book, ".epub");
 </div>
 
 <!-- Backdrop gelap -->
-<div id="translateBackdrop" onclick="closeTranslatePanel()"></div>
+<div id="translateBackdrop" class="notranslate" onclick="closeTranslatePanel()"></div>
 
 <!-- Panel terjemahan (slide dari bawah) -->
-<div id="translateOverlay">
+<div id="translateOverlay" class="notranslate">
     <div class="tl-handle"></div>
     <div class="tl-header">
         <span class="tl-title">🌐 Terjemahan</span>
@@ -161,7 +161,7 @@ $name = basename($book, ".epub");
 </div>
 <!-- ═══════════════════════════════════════ -->
 
-<div id="app">
+<div id="app" class="notranslate">
 
     <div class="toolbar" id="toolbar">
         <button class="t-btn" onclick="toggleSidebar()" title="Chapters">☰</button>
@@ -171,11 +171,9 @@ $name = basename($book, ".epub");
         <span id="bookTitle"></span>
         <span id="progress"></span>
         <button class="t-btn" onclick="toggleBookmarkCurrent()" id="bmBtn" title="Bookmark">🔖</button>
-        <button class="t-btn" onclick="openSearch()" title="Cari">🔍</button>
-        <!-- Tombol Terjemahkan di toolbar -->
-        <button class="t-btn" id="tlToolbarBtn"
-                onclick="openTranslatePanel(_tlSelectedText || '')"
-                title="Terjemahkan teks yang dipilih (T)">🌐</button>
+        <button class="t-btn hidden-mobile" onclick="openSearch()" title="Cari">🔍</button>
+        <button class="t-btn" onclick="translateFullPage()" title="Terjemahkan halaman penuh">🌐</button>
+        <button class="t-btn" onclick="revertTranslate()" title="Batalkan terjemahan">↶</button>
         <button class="t-btn" onclick="toggleSettings()" title="Pengaturan">⚙</button>
     </div>
 
@@ -240,6 +238,55 @@ $name = basename($book, ".epub");
                    oninput="setMargin(parseInt(this.value))">
             <span id="marginVal" class="slider-val">4%</span>
         </div>
+        <div class="settings-row">
+            <label>Translate</label>
+            <div class="btn-group">
+                <button class="t-btn" onclick="openTranslatePanel(_tlSelectedText || '')">🌐 Teks</button>
+                <button class="t-btn" onclick="translateFullPage()">🌐 Page</button>
+            </div>
+        </div>
+        <div class="settings-row">
+            <label>Bahasa</label>
+            <select id="fullPageLang" onchange="updateFullPageLang()">
+                <option value="id">ID</option>
+                <option value="en">EN</option>
+                <option value="ms">MS</option>
+                <option value="ar">AR</option>
+                <option value="zh-CN">ZH-CN</option>
+                <option value="zh-TW">ZH-TW</option>
+                <option value="ja">JA</option>
+                <option value="ko">KO</option>
+                <option value="fr">FR</option>
+                <option value="de">DE</option>
+                <option value="es">ES</option>
+                <option value="pt">PT</option>
+                <option value="ru">RU</option>
+                <option value="nl">NL</option>
+                <option value="it">IT</option>
+                <option value="tr">TR</option>
+                <option value="th">TH</option>
+                <option value="vi">VI</option>
+                <option value="pl">PL</option>
+                <option value="hi">HI</option>
+                <option value="sv">SV</option>
+                <option value="da">DA</option>
+                <option value="fi">FI</option>
+                <option value="no">NO</option>
+                <option value="cs">CS</option>
+                <option value="ro">RO</option>
+                <option value="hu">HU</option>
+                <option value="sk">SK</option>
+                <option value="bg">BG</option>
+                <option value="uk">UK</option>
+                <option value="hr">HR</option>
+                <option value="lt">LT</option>
+                <option value="lv">LV</option>
+                <option value="et">ET</option>
+                <option value="sl">SL</option>
+                <option value="sq">SQ</option>
+                <option value="mk">MK</option>
+            </select>
+        </div>
         <div class="settings-row actions-row">
             <button class="action-btn" onclick="openBookmarks()">🔖 Bookmark</button>
             <button class="action-btn" onclick="openStats()">📊 Statistik</button>
@@ -272,8 +319,8 @@ $name = basename($book, ".epub");
 
 </div>
 
-<div id="sidebarBackdrop" onclick="closeSidebar()"></div>
-<div id="sidebar">
+<div id="sidebarBackdrop" class="notranslate" onclick="closeSidebar()"></div>
+<div id="sidebar" class="notranslate">
     <div id="sidebarHeader">
         <span>📑 Chapters</span>
         <button onclick="closeSidebar()">✕</button>
@@ -281,7 +328,7 @@ $name = basename($book, ".epub");
     <div id="toc"></div>
 </div>
 
-<div id="toast"></div>
+<div id="toast" class="notranslate"></div>
 
 <script>
 const BOOK_URL = <?= json_encode($book) ?>;
@@ -299,6 +346,74 @@ const customRequest = (url, type) => {
     });
 };
 
+/* ── TRANSLATE FUNCTIONS ── */
+
+async function translateFullPage() {
+    const target = fullPageLang;
+    showToast('Menerjemahkan halaman...');
+    try {
+        const contents = rendition.getContents();
+        if (!originalContents) {
+            originalContents = contents.map(c => c.document.body.innerHTML);
+        }
+        for (let content of contents) {
+            const doc = content.document;
+            await translateElement(doc.body, target);
+        }
+        showToast('Halaman diterjemahkan');
+    } catch (e) {
+        showToast('Gagal menerjemahkan');
+        console.error(e);
+    }
+}
+
+function revertTranslate() {
+    if (!originalContents) {
+        showToast('Belum ada terjemahan untuk dibatalkan');
+        return;
+    }
+    const contents = rendition.getContents();
+    contents.forEach((content, i) => {
+        if (originalContents[i]) {
+            content.document.body.innerHTML = originalContents[i];
+        }
+    });
+    originalContents = null;
+    showToast('Terjemahan dibatalkan');
+}
+
+async function translateElement(element, target) {
+    const promises = [];
+    for (let node of element.childNodes) {
+        if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) {
+            promises.push(translateTextNode(node, target));
+        } else if (node.nodeType === Node.ELEMENT_NODE && !node.classList.contains('notranslate')) {
+            promises.push(translateElement(node, target));
+        }
+    }
+    await Promise.all(promises);
+}
+
+async function translateTextNode(node, target) {
+    const text = node.textContent;
+    const translated = await translateText(text, target);
+    node.textContent = translated;
+}
+
+async function translateText(text, target) {
+    try {
+        const res = await fetch('translate.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text, source: 'auto', target })
+        });
+        const data = await res.json();
+        return data.ok ? data.translation : text;
+    } catch {
+        return text;
+    }
+}
+
 /* ── STATE ── */
 let fontSize    = parseInt(localStorage.getItem("reader-fontSize"))      || 100;
 let fontFamily  = localStorage.getItem("reader-fontFamily")              || "serif";
@@ -309,6 +424,8 @@ let margin      = parseInt(localStorage.getItem("reader-margin"))        ?? 4;
 let currentPct  = 0;
 let swipeEnabled = localStorage.getItem("reader-swipe") !== "false";
 let tocItems    = [];
+let fullPageLang = localStorage.getItem("reader-fullPageLang") || "id";
+let originalContents = null;
 
 const THEMES = {
     light: { bg: "#ffffff", color: "#1a1a1a" },
@@ -322,6 +439,7 @@ document.getElementById("lineSpacingSlider").value = lineSpacing;
 document.getElementById("lineSpacingVal").textContent = lineSpacing.toFixed(1);
 document.getElementById("marginSlider").value = margin;
 document.getElementById("marginVal").textContent = margin + "%";
+document.getElementById("fullPageLang").value = fullPageLang;
 const dlBtn = document.getElementById("downloadBtn");
 dlBtn.href = BOOK_URL;
 dlBtn.setAttribute("download", BOOK_URL.split("/").pop());
@@ -499,6 +617,7 @@ rendition.on("relocated", loc => {
     localStorage.setItem("pct-" + BOOK_URL, currentPct);
     updateBookmarkBtn();
     trackReadingTime();
+    originalContents = null; // reset translate state per page
     if (isScrollMode()) updateScrollFooterLabels();
 });
 
@@ -592,6 +711,11 @@ function changeFont(f) {
     fontFamily = f;
     localStorage.setItem("reader-fontFamily", f);
     reInjectAll();
+}
+
+function updateFullPageLang() {
+    fullPageLang = document.getElementById("fullPageLang").value;
+    localStorage.setItem("reader-fullPageLang", fullPageLang);
 }
 
 function setLineSpacing(val) {

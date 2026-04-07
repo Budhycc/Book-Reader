@@ -1,8 +1,4 @@
 <?php
-// translate.php — Proxy tipis ke deep-translator API
-// Endpoint publik: https://deep-translator-api.azurewebsites.net/translate
-// Dokumentasi Swagger: https://deep-translator-api.azurewebsites.net/
-
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');   // aman karena hanya dipakai oleh reader lokal
 
@@ -47,7 +43,7 @@ if ($source !== 'auto' && !in_array($source, $allowed, true)) {
     $source = 'auto';
 }
 
-/* ── Kirim ke Google Translate API (unofficial) ── */
+/* ── Kirim ke Google Translate API ── */
 $apiUrl = 'https://translate.googleapis.com/translate_a/single?client=gtx&sl=' . urlencode($source) . '&tl=' . urlencode($target) . '&dt=t&q=' . urlencode($text);
 
 $ctx = stream_context_create([

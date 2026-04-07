@@ -88,6 +88,9 @@ html, body {
   height: var(--toolbar-h);
   flex-shrink: 0;
   gap: 1px;
+  overflow-x: auto;
+  white-space: nowrap;
+  -webkit-overflow-scrolling: touch;
   transition: transform 0.3s ease, opacity 0.3s ease, background 0.3s;
   z-index: 10;
 }
@@ -112,6 +115,28 @@ html, body {
 .t-btn:hover  { background: rgba(128,100,60,0.12); color: var(--text); }
 .t-btn:active { background: rgba(201,146,58,0.18); color: var(--accent2); }
 .t-btn.active-btn { color: var(--accent2) !important; }
+
+.t-select {
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: rgba(128,100,60,0.1);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.15s;
+  flex-shrink: 0;
+}
+.t-select:focus { border-color: var(--accent); }
+.t-select option { background: #222; color: var(--text); }
+
+.hidden-mobile { display: none; }
+
+@media (min-width: 601px) {
+  .hidden-mobile { display: inline-block; }
+}
 
 #bookTitle {
   flex: 1; min-width: 0;
@@ -173,7 +198,7 @@ html, body {
   z-index: 9;
 }
 #settingsDrawer.open {
-  max-height: 400px;
+  max-height: 450px;
   padding: 12px 14px;
   border-bottom: 1px solid var(--border);
 }
