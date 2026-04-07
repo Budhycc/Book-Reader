@@ -376,6 +376,7 @@ function revertTranslate() {
     contents.forEach((content, i) => {
         if (originalContents[i]) {
             content.document.body.innerHTML = originalContents[i];
+            injectCssToContents(content); // Re-inject CSS
         }
     });
     originalContents = null;
