@@ -171,7 +171,7 @@ $name = basename($book, ".epub");
         <span id="bookTitle"></span>
         <span id="progress"></span>
         <button class="t-btn" onclick="toggleBookmarkCurrent()" id="bmBtn" title="Bookmark">🔖</button>
-        <button class="t-btn hidden-mobile" onclick="openSearch()" title="Cari">🔍</button>
+        <button class="t-btn" onclick="openSearch()" title="Cari">🔍</button>
         <button class="t-btn" onclick="translateFullPage()" title="Terjemahkan halaman penuh">🌐</button>
         <button class="t-btn" onclick="revertTranslate()" title="Batalkan terjemahan">↶</button>
         <button class="t-btn" onclick="toggleSettings()" title="Pengaturan">⚙</button>
@@ -865,6 +865,29 @@ let searchDebounce = null;
 function openSearch() { closeSettings(); document.getElementById("searchOverlay").classList.add("open"); setTimeout(() => document.getElementById("searchInput").focus(), 100); }
 function closeSearch() { document.getElementById("searchOverlay").classList.remove("open"); }
 
+function getTextNodeAtOffset(root, offset) {
+    const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_TEXT, null, false);
+    let node;
+    while ((node = walker.nextNode())) {
+        const length = node.textContent.length;
+        if (offset <= length) {
+            return { node, offset };
+        }
+        offset -= length;
+    }
+    return null;
+}
+
+function buildExcerpt(text, idx, q) {
+    const start = Math.max(0, idx - 50);
+    const end = Math.min(text.length, idx + q.length + 100);
+    let excerpt = text.substring(start, end);
+    excerpt = excerpt.replace(new RegExp(q, "gi"), m => `<mark>${m}</mark>`);
+    if (start > 0) excerpt = "..." + excerpt;
+    if (end < text.length) excerpt += "...";
+    return excerpt;
+}
+
 async function doSearch() {
     clearTimeout(searchDebounce);
     searchDebounce = setTimeout(async () => {
@@ -878,22 +901,35 @@ async function doSearch() {
         }
         resultsEl.innerHTML = '<div class="search-loading">Mencari...</div>';
         try {
-            let results = [];
             await book.ready;
             await book.loaded.spine;
             const spineItems = book.spine.spineItems;
+            const results = [];
             for (let item of spineItems) {
                 try {
-                    const textRaw = await customRequest(item.href, 'text');
-                    if (!textRaw) continue;
-                    const doc = new DOMParser().parseFromString(textRaw, "text/html");
-                    const text = doc.body?.textContent?.toLowerCase() || "";
+                    await item.load(book.load.bind(book));
+                    const body = item.document?.body;
+                    if (!body) continue;
+                    const text = body.textContent?.toLowerCase() || "";
                     if (!text) continue;
-                    let idx = text.indexOf(q);
-                    if (idx !== -1) {
-                        const excerpt = text.substring(Math.max(0, idx - 50), idx + 100);
-                        results.push({ cfi: item.cfiBase, excerpt: excerpt });
+                    let startIndex = 0;
+                    while (true) {
+                        const idx = text.indexOf(q, startIndex);
+                        if (idx === -1) break;
+                        const start = getTextNodeAtOffset(body, idx);
+                        const end = getTextNodeAtOffset(body, idx + q.length);
+                        let cfi = item.cfiBase;
+                        if (start && end && typeof item.cfiFromRange === 'function') {
+                            const range = item.document.createRange();
+                            range.setStart(start.node, start.offset);
+                            range.setEnd(end.node, end.offset);
+                            cfi = item.cfiFromRange(range);
+                        }
+                        results.push({ cfi, excerpt: buildExcerpt(text, idx, q) });
+                        startIndex = idx + q.length;
+                        if (results.length >= 200) break;
                     }
+                    if (results.length >= 200) break;
                 } catch (e) {
                     console.warn("Search error:", item.href, e);
                 }
@@ -907,8 +943,8 @@ async function doSearch() {
             results.forEach(r => {
                 const d = document.createElement("div");
                 d.className = "search-item";
-                d.innerHTML = `<p>${r.excerpt.replace(new RegExp(q, "gi"), m => `<mark>${m}</mark>`)}</p>`;
-                d.onclick = () => { rendition.display(r.cfi); closeSearch(); };
+                d.innerHTML = `<p>${r.excerpt}</p>`;
+                d.onclick = () => { rendition.display(r.cfi).catch(() => {}); closeSearch(); };
                 resultsEl.appendChild(d);
             });
         } catch (e) {
@@ -975,7 +1011,21 @@ function calcStreak(desc) {
 /* ── Navigation ── */
 function nextPage() { rendition.next().catch(() => {}); }
 function prevPage() { rendition.prev().catch(() => {}); }
+function isTextInputEvent(e) {
+    const target = e.target;
+    if (!target) return false;
+    const tagName = target.tagName?.toUpperCase();
+    return tagName === "INPUT" || tagName === "TEXTAREA" || tagName === "SELECT" || target.isContentEditable;
+}
 function handleKey(e) {
+    const searchOpen = document.getElementById("searchOverlay").classList.contains("open");
+    if (searchOpen && e.key === "Escape") {
+        closeSearch();
+        return;
+    }
+    if (isTextInputEvent(e)) {
+        return;
+    }
     if (e.key === "ArrowRight" || e.key === " ") { e.preventDefault(); nextPage(); }
     if (e.key === "ArrowLeft")  { e.preventDefault(); prevPage(); }
     if (e.key === "Escape")     {
