@@ -171,7 +171,7 @@ $name = basename($book, ".epub");
         <span id="bookTitle"></span>
         <span id="progress"></span>
         <button class="t-btn" onclick="toggleBookmarkCurrent()" id="bmBtn" title="Bookmark">🔖</button>
-        <button class="t-btn hidden-mobile" onclick="openSearch()" title="Cari">🔍</button>
+        <button class="t-btn" onclick="openSearch()" title="Cari">🔍</button>
         <button class="t-btn" onclick="translateFullPage()" title="Terjemahkan halaman penuh">🌐</button>
         <button class="t-btn" onclick="revertTranslate()" title="Batalkan terjemahan">↶</button>
         <button class="t-btn" onclick="toggleSettings()" title="Pengaturan">⚙</button>
