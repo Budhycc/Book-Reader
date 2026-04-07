@@ -1,6 +1,29 @@
 # 📚 EPUB Library
 
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
+
 Aplikasi web untuk membaca koleksi buku EPUB secara lokal. Dibangun dengan PHP murni di sisi server dan epub.js di sisi klien — tanpa framework, tanpa database, tanpa instalasi rumit.
+
+---
+
+## Daftar Isi
+
+- [Fitur Utama](#fitur-utama)
+  - [Library](#library)
+  - [Reader](#reader)
+- [Struktur File](#struktur-file)
+- [Persyaratan Server](#persyaratan-server)
+- [Instalasi](#instalasi)
+- [Cara Penggunaan](#cara-penggunaan)
+- [Penyimpanan Data](#penyimpanan-data)
+- [Cache Cover](#cache-cover)
+- [API Endpoint Internal](#api-endpoint-internal)
+- [Keamanan](#keamanan)
+- [Menambah Font Baru](#menambah-font-baru)
+- [Dependensi](#dependensi)
+- [Troubleshooting](#troubleshooting)
+- [Credits](#credits)
+- [Lisensi](#lisensi)
 
 ---
 
@@ -51,6 +74,9 @@ Aplikasi web untuk membaca koleksi buku EPUB secara lokal. Dibangun dengan PHP m
 │   └── *.epub
 ├── cache/
 │   └── covers/         # Disk cache cover yang sudah di-resize (auto-generated)
+├── img/                # Folder untuk gambar statis (favicon, dll)
+│   ├── favicon.ico
+│   └── image.png
 └── js/
     ├── epub.min.js     # epub.js library
     └── jszip.min.js    # JSZip (dependensi epub.js)
@@ -306,6 +332,15 @@ epub.js menggunakan iframe; beberapa EPUB memiliki CSS internal yang meng-overri
 
 **Progress tidak muncul**
 Proses generate lokasi buku (`book.locations.generate`) membutuhkan waktu. Progress muncul setelah selesai, biasanya 1–5 detik setelah buku terbuka.
+
+---
+
+## Credits
+
+- [epub.js](https://github.com/futurepress/epub.js) - Library untuk membaca EPUB di browser
+- [JSZip](https://stuk.github.io/jszip/) - Library untuk mengekstrak file ZIP
+- Google Fonts - Untuk font Playfair Display dan DM Sans
+- Google Translate API - Untuk fitur terjemahan teks
 
 ---
 
