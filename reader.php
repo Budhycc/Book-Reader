@@ -803,6 +803,10 @@ function toggleSettings() {
     clearTimeout(toolbarTimeout);
 }
 
+function closeSettings() {
+    document.getElementById("settingsDrawer").classList.remove("open");
+}
+
 /* ── Sidebar ── */
 function toggleSidebar() {
     const isOpen = document.getElementById("sidebar").classList.toggle("open");
