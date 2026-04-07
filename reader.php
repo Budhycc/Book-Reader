@@ -557,7 +557,7 @@ rendition.on("rendered", (section, view) => {
                 const rect = sel.getRangeAt(0).getBoundingClientRect();
                 const iframeRect = view.element?.getBoundingClientRect() || { left: 0, top: 0 };
                 const screenX = rect.left + iframeRect.left + rect.width / 2;
-                const screenY = rect.top  + iframeRect.top;
+                const screenY = rect.bottom + iframeRect.top + 60;
                 _showBubbleAt(screenX - 90, screenY, txt);
             }
         } catch(e) {
