@@ -22,6 +22,7 @@ Aplikasi web untuk membaca koleksi buku EPUB secara lokal. Dibangun dengan PHP m
 - **Slider redup** layar tanpa mengubah kecerahan sistem
 - **Toggle mode scroll / halaman**
 - **Pencarian teks** di seluruh isi buku
+- **Terjemahan teks** — pilih teks dan klik tombol terjemah menggunakan Google Translate
 - **Bookmark** halaman dengan daftar riwayat
 - **Statistik membaca**: total halaman, waktu, streak harian, grafik 7 hari
 - Posisi baca terakhir tersimpan otomatis
@@ -37,10 +38,15 @@ Aplikasi web untuk membaca koleksi buku EPUB secara lokal. Dibangun dengan PHP m
 ├── index.css           # Gaya halaman library
 ├── reader.php          # Halaman reader EPUB
 ├── reader.css          # Gaya halaman reader
+├── translate-reader.css # Gaya panel terjemahan
 ├── get-cover.php       # Endpoint ekstrak + resize + cache cover dari EPUB
 ├── get-epub-part.php   # Endpoint streaming konten EPUB ke browser
+├── get-meta.php        # Endpoint ekstrak metadata (judul, penulis) dari EPUB
+├── translate.php       # Endpoint terjemahan teks menggunakan Google Translate
 ├── upload.php          # Endpoint upload file EPUB
 ├── upload.html         # Halaman upload buku
+├── LICENSE             # Lisensi project
+├── readme.md           # Dokumentasi ini
 ├── books/              # Folder tempat menyimpan file .epub
 │   └── *.epub
 ├── cache/
@@ -215,6 +221,29 @@ Body: epub=<file>
 ```
 
 Respons: `{"ok": true, "filename": "nama.epub"}` atau `{"ok": false, "error": "..."}`.
+
+### `get-meta.php`
+
+Mengekstrak metadata (judul, penulis) dari file EPUB.
+
+```
+GET get-meta.php                    # Semua buku
+GET get-meta.php?book=books/nama.epub  # Satu buku
+```
+
+Respons: JSON array dengan `file`, `title`, `author` untuk setiap buku.
+
+### `translate.php`
+
+Menerjemahkan teks menggunakan Google Translate API.
+
+```
+POST translate.php
+Content-Type: application/json
+Body: {"text": "Hello world", "source": "en", "target": "id"}
+```
+
+Respons: `{"ok": true, "translation": "Halo dunia", "source": "en", "target": "id"}` atau `{"ok": false, "error": "..."}`.
 
 Semua endpoint dilengkapi validasi keamanan — hanya mengizinkan akses ke file `.epub` di dalam folder `books/` dan mencegah path traversal.
 
