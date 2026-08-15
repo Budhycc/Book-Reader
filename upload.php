@@ -57,6 +57,7 @@ if ($ext !== 'epub') {
 // Sanitasi nama file
 $safeName = preg_replace('/[^a-zA-Z0-9_\-\. ]/', '', pathinfo($originalName, PATHINFO_FILENAME));
 $safeName = trim($safeName) ?: 'book_' . time();
+$safeName = substr($safeName, 0, 200);
 $destName = $safeName . '.epub';
 $destPath = $uploadDir . $destName;
 

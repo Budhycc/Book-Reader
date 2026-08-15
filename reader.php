@@ -243,6 +243,7 @@ $name = basename($book, ".epub");
             <div class="btn-group">
                 <button class="t-btn" onclick="openTranslatePanel(_tlSelectedText || '')">🌐 Teks</button>
                 <button class="t-btn" onclick="translateFullPage()">🌐 Page</button>
+                <button class="t-btn" onclick="revertTranslate()">↶ Undo</button>
             </div>
         </div>
         <div class="settings-row">
@@ -353,13 +354,58 @@ async function translateFullPage() {
     showToast('Menerjemahkan halaman...');
     try {
         const contents = rendition.getContents();
-        if (!originalContents) {
-            originalContents = contents.map(c => c.document.body.innerHTML);
-        }
+        
+        let allTextNodes = [];
         for (let content of contents) {
-            const doc = content.document;
-            await translateElement(doc.body, target);
+            _collectTextNodes(content.document.body, allTextNodes);
         }
+        
+        if (allTextNodes.length === 0) {
+            showToast('Halaman diterjemahkan');
+            return;
+        }
+
+        if (!_originalTextNodes) {
+            _originalTextNodes = allTextNodes.map(node => ({ node: node, originalText: node.textContent }));
+        }
+
+        const chunks = [];
+        let currentChunk = [];
+        let currentLen = 0;
+        
+        for (let node of allTextNodes) {
+            const text = node.textContent.trim().replace(/\n/g, ' '); // hapus newline internal agar aman
+            if (currentLen + text.length > 3500 && currentChunk.length > 0) {
+                chunks.push(currentChunk);
+                currentChunk = [];
+                currentLen = 0;
+            }
+            currentChunk.push({ node, text });
+            currentLen += text.length;
+        }
+        if (currentChunk.length > 0) chunks.push(currentChunk);
+        
+        for (let chunk of chunks) {
+            const textsToTranslate = chunk.map(c => c.text);
+            try {
+                const res = await fetch('translate.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ texts: textsToTranslate, source: 'auto', target })
+                });
+                const data = await res.json();
+                if (data.ok && data.translations) {
+                    for (let i = 0; i < chunk.length; i++) {
+                        if (data.translations[i]) {
+                            chunk[i].node.textContent = data.translations[i];
+                        }
+                    }
+                }
+            } catch (err) {
+                console.warn('Batch translation error', err);
+            }
+        }
+        
         showToast('Halaman diterjemahkan');
     } catch (e) {
         showToast('Gagal menerjemahkan');
@@ -367,40 +413,29 @@ async function translateFullPage() {
     }
 }
 
+function _collectTextNodes(element, targetNodes) {
+    for (let node of element.childNodes) {
+        if (node.nodeType === Node.TEXT_NODE && node.textContent.trim().length > 0) {
+            targetNodes.push(node);
+        } else if (node.nodeType === Node.ELEMENT_NODE && !node.classList.contains('notranslate')) {
+            _collectTextNodes(node, targetNodes);
+        }
+    }
+}
+
 function revertTranslate() {
-    if (!originalContents) {
+    if (!_originalTextNodes) {
         showToast('Belum ada terjemahan untuk dibatalkan');
         return;
     }
-    const contents = rendition.getContents();
-    contents.forEach((content, i) => {
-        if (originalContents[i]) {
-            content.document.body.innerHTML = originalContents[i];
-            injectCssToContents(content); // Re-inject CSS
-        }
-    });
-    originalContents = null;
+    for (let item of _originalTextNodes) {
+        item.node.textContent = item.originalText;
+    }
+    _originalTextNodes = null;
     showToast('Terjemahan dibatalkan');
 }
 
-async function translateElement(element, target) {
-    const promises = [];
-    for (let node of element.childNodes) {
-        if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) {
-            promises.push(translateTextNode(node, target));
-        } else if (node.nodeType === Node.ELEMENT_NODE && !node.classList.contains('notranslate')) {
-            promises.push(translateElement(node, target));
-        }
-    }
-    await Promise.all(promises);
-}
-
-async function translateTextNode(node, target) {
-    const text = node.textContent;
-    const translated = await translateText(text, target);
-    node.textContent = translated;
-}
-
+// Keep single text translation for bubble selection
 async function translateText(text, target) {
     try {
         const res = await fetch('translate.php', {
@@ -409,7 +444,7 @@ async function translateText(text, target) {
             body: JSON.stringify({ text, source: 'auto', target })
         });
         const data = await res.json();
-        return data.ok ? data.translation : text;
+        return data.ok && data.translation ? data.translation : text;
     } catch {
         return text;
     }
@@ -426,7 +461,7 @@ let currentPct  = 0;
 let swipeEnabled = localStorage.getItem("reader-swipe") !== "false";
 let tocItems    = [];
 let fullPageLang = localStorage.getItem("reader-fullPageLang") || "id";
-let originalContents = null;
+let _originalTextNodes = null;
 
 const THEMES = {
     light: { bg: "#ffffff", color: "#1a1a1a" },
@@ -618,7 +653,7 @@ rendition.on("relocated", loc => {
     localStorage.setItem("pct-" + BOOK_URL, currentPct);
     updateBookmarkBtn();
     trackReadingTime();
-    originalContents = null; // reset translate state per page
+    _originalTextNodes = null; // reset translate state per page
     if (isScrollMode()) updateScrollFooterLabels();
 });
 

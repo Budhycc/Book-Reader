@@ -1,5 +1,8 @@
 <?php
 $books = glob("books/*.epub");
+if ($books === false) {
+    $books = [];
+}
 ?>
 <!DOCTYPE html>
 <html lang="id">

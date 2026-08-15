@@ -13,20 +13,25 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 $raw = file_get_contents('php://input');
 $body = json_decode($raw, true);
 
-$text   = trim($body['text']   ?? '');
 $source = trim($body['source'] ?? 'auto');
 $target = trim($body['target'] ?? 'id');
 
-if ($text === '') {
+/* ── Terima single string atau array of strings ── */
+$texts = [];
+if (isset($body['texts']) && is_array($body['texts'])) {
+    $texts = $body['texts'];
+} elseif (isset($body['text']) && trim($body['text']) !== '') {
+    $texts = [$body['text']];
+}
+
+if (empty($texts)) {
     http_response_code(400);
     echo json_encode(['ok' => false, 'error' => 'Teks kosong']);
     exit;
 }
 
-// Batasi panjang teks (API biasanya punya batas sendiri, tapi aman dibatasi di sini)
-if (mb_strlen($text) > 5000) {
-    $text = mb_substr($text, 0, 5000);
-}
+/* ── Bersihkan teks (trim space) ── */
+$texts = array_map(function($t) { return trim($t); }, $texts);
 
 /* ── Validasi bahasa target (whitelist sederhana) ── */
 $allowed = [
@@ -43,13 +48,26 @@ if ($source !== 'auto' && !in_array($source, $allowed, true)) {
     $source = 'auto';
 }
 
-/* ── Kirim ke Google Translate API ── */
-$apiUrl = 'https://translate.googleapis.com/translate_a/single?client=gtx&sl=' . urlencode($source) . '&tl=' . urlencode($target) . '&dt=t&q=' . urlencode($text);
+/* ── Gabungkan teks dengan delimiter " ~||~ " ── */
+// Google Translate dapat mempertahankan dan menerjemahkan delimiter ini menjadi dirinya sendiri
+$mergedText = implode(" ~||~ ", $texts);
+
+// Batasi max length (Google Translate gtx POST limit ~5000 chars)
+if (mb_strlen($mergedText) > 5000) {
+    $mergedText = mb_substr($mergedText, 0, 5000);
+}
+
+/* ── Kirim ke Google Translate API (Gunakan POST) ── */
+$apiUrl = 'https://translate.googleapis.com/translate_a/single?client=gtx&sl=' . urlencode($source) . '&tl=' . urlencode($target) . '&dt=t';
+
+$postData = http_build_query(['q' => $mergedText]);
 
 $ctx = stream_context_create([
     'http' => [
-        'method'        => 'GET',
-        'header'        => "Accept: application/json\r\n",
+        'method'        => 'POST',
+        'header'        => "Content-Type: application/x-www-form-urlencoded\r\n" .
+                           "Accept: application/json\r\n",
+        'content'       => $postData,
         'timeout'       => 15,
         'ignore_errors' => true,
     ]
@@ -80,7 +98,7 @@ if (!$data || !isset($data[0][0][0])) {
     exit;
 }
 
-// Ekstrak terjemahan
+// Ekstrak terjemahan gabungan
 $translation = '';
 foreach ($data[0] as $part) {
     if (isset($part[0])) {
@@ -88,9 +106,20 @@ foreach ($data[0] as $part) {
     }
 }
 
+// Split kembali menggunakan regex (menangani spasi tambahan jika ada)
+$translatedArray = preg_split('/~\s*\|\|\s*~/', $translation);
+$translatedArray = array_map(function($t) { return trim($t); }, $translatedArray);
+
+// Jika jumlah tidak sama karena error split, fallback
+if (count($translatedArray) < count($texts)) {
+    // Pad dengan string kosong jika Google menghilangkan beberapa teks
+    $translatedArray = array_pad($translatedArray, count($texts), '');
+}
+
 echo json_encode([
-    'ok'          => true,
-    'translation' => $translation,
-    'source'      => $source,
-    'target'      => $target,
+    'ok'           => true,
+    'translations' => $translatedArray,
+    'translation'  => $translatedArray[0] ?? '', // Untuk backward compatibility
+    'source'       => $source,
+    'target'       => $target,
 ]);
