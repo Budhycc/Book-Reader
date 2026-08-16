@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+    <title>Upload Buku — EPUB Library</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap">
+    <link rel="stylesheet" href="upload.css">
+</head>
+<body>
+
+<header>
+    <a href="index.html" title="Kembali ke Library">←</a>
+    <h2>📤 Upload Buku</h2>
+</header>
+
+<div class="page">
+    <p class="page-title">Tambah Buku Baru</p>
+    <p class="page-subtitle">Upload satu atau beberapa file .epub sekaligus ke library.</p>
+
+    <div id="dropZone">
+        <input type="file" id="fileInput" accept=".epub" multiple>
+        <span class="drop-icon">📂</span>
+        <div class="drop-title">Drag & drop file di sini</div>
+        <div class="drop-sub">atau <span>klik untuk memilih file</span> dari perangkat Anda</div>
+    </div>
+
+    <div id="fileList"></div>
+
+    <div class="actions" id="actions" style="display:none">
+        <button class="btn btn-primary" id="uploadBtn">⬆ Upload Semua</button>
+        <button class="btn btn-secondary" id="clearBtn">✕ Hapus Semua</button>
+    </div>
+
+    <div id="summary"></div>
+</div>
+
+<script src="js/upload.js"></script>
+</body>
+</html>

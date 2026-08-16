@@ -1,343 +1,17 @@
-<?php
-$book = isset($_GET['book']) ? $_GET['book'] : '';
-if (!preg_match('/^books\/[^\/]+\.epub$/', $book) || !file_exists($book)) {
-    http_response_code(404);
-    exit('Book not found.');
+
+const urlParams = new URLSearchParams(window.location.search);
+const BOOK_URL = urlParams.get("book");
+if (!BOOK_URL) {
+    alert("Book not found.");
+    window.location.href = "index.html";
 }
-$name = basename($book, ".epub");
-?>
-<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-    <title><?= htmlspecialchars($name) ?> — EPUB Reader</title>
-    <link rel="icon" type="image/x-icon" href="/img/favicon.ico">
-    <script src="js/jszip.min.js"></script>
-    <script src="js/epub.min.js"></script>
-    <link rel="stylesheet" href="reader.css">
-    <link rel="stylesheet" href="translate-reader.css">
-</head>
-<body>
-
-<div id="loadingScreen" class="notranslate">
-    <div class="spinner"></div>
-    <div>Membuka buku...</div>
-</div>
-
-<div id="brightnessOverlay"></div>
-
-<!-- Search overlay -->
-<div id="searchOverlay" class="overlay-panel notranslate">
-    <div class="overlay-header">
-        <span>🔍 Cari Teks</span>
-        <button onclick="closeSearch()">✕</button>
-    </div>
-    <div class="search-input-wrap">
-        <input type="text" id="searchInput" placeholder="Ketik kata/frasa..." oninput="doSearch()">
-        <span id="searchCount"></span>
-    </div>
-    <div id="searchResults"></div>
-</div>
-
-<!-- Bookmark overlay -->
-<div id="bookmarkOverlay" class="overlay-panel notranslate">
-    <div class="overlay-header">
-        <span>🔖 Bookmark</span>
-        <button onclick="closeBookmarks()">✕</button>
-    </div>
-    <div id="bookmarkList"></div>
-    <div id="bookmarkEmpty" style="display:none">Belum ada bookmark.</div>
-</div>
-
-<!-- Stats overlay -->
-<div id="statsOverlay" class="overlay-panel notranslate">
-    <div class="overlay-header">
-        <span>📊 Statistik Baca</span>
-        <button onclick="closeStats()">✕</button>
-    </div>
-    <div id="statsContent"></div>
-</div>
-
-<!-- ═══════════════════════════════════════
-     TRANSLATE ELEMENTS
-═══════════════════════════════════════ -->
-<!-- Bubble muncul saat teks dipilih -->
-<div id="translateBubble" class="notranslate">
-    <button class="bubble-btn" id="bubbleTranslate" onclick="openTranslateFromBubble()">
-        🌐 Terjemahkan
-    </button>
-    <div class="bubble-divider"></div>
-    <button class="bubble-btn" id="bubbleCopy" onclick="copySelectedFromBubble()">
-        📋 Salin
-    </button>
-</div>
-
-<!-- Backdrop gelap -->
-<div id="translateBackdrop" class="notranslate" onclick="closeTranslatePanel()"></div>
-
-<!-- Panel terjemahan (slide dari bawah) -->
-<div id="translateOverlay" class="notranslate">
-    <div class="tl-handle"></div>
-    <div class="tl-header">
-        <span class="tl-title">🌐 Terjemahan</span>
-        <button class="tl-close" onclick="closeTranslatePanel()">✕</button>
-    </div>
-    <div class="tl-controls">
-        <div class="tl-lang-wrap">
-            <select id="tlSource">
-                <option value="auto">Auto Detect</option>
-                <option value="en">English</option>
-                <option value="id">Indonesia</option>
-                <option value="ms">Melayu</option>
-                <option value="ar">العربية</option>
-                <option value="zh-CN">中文(简)</option>
-                <option value="zh-TW">中文(繁)</option>
-                <option value="ja">日本語</option>
-                <option value="ko">한국어</option>
-                <option value="fr">Français</option>
-                <option value="de">Deutsch</option>
-                <option value="es">Español</option>
-                <option value="pt">Português</option>
-                <option value="ru">Русский</option>
-                <option value="nl">Nederlands</option>
-                <option value="it">Italiano</option>
-                <option value="tr">Türkçe</option>
-                <option value="th">ภาษาไทย</option>
-                <option value="vi">Tiếng Việt</option>
-                <option value="pl">Polski</option>
-                <option value="hi">हिन्दी</option>
-            </select>
-        </div>
-        <span class="tl-arrow">→</span>
-        <div class="tl-lang-wrap">
-            <select id="tlTarget">
-                <option value="id">Indonesia</option>
-                <option value="en">English</option>
-                <option value="ms">Melayu</option>
-                <option value="ar">العربية</option>
-                <option value="zh-CN">中文(简)</option>
-                <option value="zh-TW">中文(繁)</option>
-                <option value="ja">日本語</option>
-                <option value="ko">한국어</option>
-                <option value="fr">Français</option>
-                <option value="de">Deutsch</option>
-                <option value="es">Español</option>
-                <option value="pt">Português</option>
-                <option value="ru">Русский</option>
-                <option value="nl">Nederlands</option>
-                <option value="it">Italiano</option>
-                <option value="tr">Türkçe</option>
-                <option value="th">ภาษาไทย</option>
-                <option value="vi">Tiếng Việt</option>
-                <option value="pl">Polski</option>
-                <option value="hi">हिन्दी</option>
-                <option value="sv">Svenska</option>
-                <option value="da">Dansk</option>
-                <option value="fi">Suomi</option>
-                <option value="no">Norsk</option>
-            </select>
-        </div>
-        <button class="tl-swap-btn" onclick="swapLanguages()" title="Tukar bahasa">⇄</button>
-        <button class="tl-retranslate" onclick="doTranslate()">↺ Ulangi</button>
-    </div>
-    <div class="tl-body">
-        <div>
-            <div class="tl-section-label">Teks Asli</div>
-            <div class="tl-source-box" id="tlSourceText"></div>
-        </div>
-        <div>
-            <div class="tl-section-label">Terjemahan</div>
-            <div class="tl-result-box" id="tlResultText">
-                <span style="color:var(--muted);font-size:13px;">Hasil terjemahan muncul di sini…</span>
-            </div>
-        </div>
-    </div>
-    <div class="tl-actions">
-        <button class="tl-action-btn" onclick="copyTranslation()">📋 Salin Terjemahan</button>
-        <button class="tl-action-btn" onclick="speakTranslation()">🔊 Dengarkan</button>
-        <button class="tl-action-btn" onclick="copySourceText()">📄 Salin Asli</button>
-    </div>
-</div>
-<!-- ═══════════════════════════════════════ -->
-
-<div id="app" class="notranslate">
-
-    <div class="toolbar" id="toolbar">
-        <button class="t-btn" onclick="toggleSidebar()" title="Chapters">☰</button>
-        <a class="t-btn" href="index.php" title="Library">🏠</a>
-        <button class="t-btn" onclick="prevPage()" title="Sebelumnya">◀</button>
-        <button class="t-btn" onclick="nextPage()" title="Berikutnya">▶</button>
-        <span id="bookTitle"></span>
-        <span id="progress"></span>
-        <button class="t-btn" onclick="toggleBookmarkCurrent()" id="bmBtn" title="Bookmark">🔖</button>
-        <button class="t-btn" onclick="openSearch()" title="Cari">🔍</button>
-        <button class="t-btn" onclick="translateFullPage()" title="Terjemahkan halaman penuh">🌐</button>
-        <button class="t-btn" onclick="revertTranslate()" title="Batalkan terjemahan">↶</button>
-        <button class="t-btn" onclick="toggleSettings()" title="Pengaturan">⚙</button>
-    </div>
-
-    <div id="progressBar">
-        <div id="progressFill"></div>
-        <div id="etaLabel"></div>
-    </div>
-
-    <div id="settingsDrawer">
-        <div class="settings-row">
-            <label>Ukuran</label>
-            <div class="btn-group">
-                <button class="t-btn" onclick="smallerText()">A−</button>
-                <button class="t-btn" onclick="biggerText()">A+</button>
-                <button class="t-btn" onclick="resetFont()">↺</button>
-            </div>
-        </div>
-        <div class="settings-row">
-            <label>Font</label>
-            <select id="fontSelect" onchange="changeFont(this.value)">
-                <option value="serif">Serif</option>
-                <option value="sans-serif">Sans</option>
-                <option value="Georgia">Georgia</option>
-                <option value="Times New Roman">Times</option>
-            </select>
-        </div>
-        <div class="settings-row">
-            <label>Tema</label>
-            <div class="btn-group theme-btns">
-                <button class="theme-btn" data-theme="light" onclick="setTheme('light')">☀ Terang</button>
-                <button class="theme-btn" data-theme="sepia" onclick="setTheme('sepia')">📜 Sepia</button>
-                <button class="theme-btn" data-theme="dark" onclick="setTheme('dark')">🌙 Gelap</button>
-            </div>
-        </div>
-        <div class="settings-row">
-            <label>Mode</label>
-            <div class="btn-group">
-                <button class="t-btn" id="flowBtn" onclick="toggleFlow()">📄 Scroll</button>
-                <a class="t-btn" id="downloadBtn" title="Download">⬇ Unduh</a>
-            </div>
-        </div>
-        <div class="settings-row">
-            <label>Swipe</label>
-            <div class="btn-group">
-                <button class="t-btn" id="swipeToggleBtn" onclick="toggleSwipe()">👆 Aktif</button>
-            </div>
-            <span id="swipeStatusLabel" style="font-size:11px;color:var(--muted);margin-left:4px;align-self:center;"></span>
-        </div>
-        <div class="settings-row">
-            <label>Redup</label>
-            <input type="range" id="brightnessSlider" min="0" max="80" value="0" oninput="setBrightness(this.value)">
-        </div>
-        <div class="settings-row">
-            <label>Spasi</label>
-            <input type="range" id="lineSpacingSlider" min="1.0" max="3.0" step="0.1" value="1.6"
-                   oninput="setLineSpacing(parseFloat(this.value))">
-            <span id="lineSpacingVal" class="slider-val">1.6</span>
-        </div>
-        <div class="settings-row">
-            <label>Margin</label>
-            <input type="range" id="marginSlider" min="0" max="10" step="1" value="4"
-                   oninput="setMargin(parseInt(this.value))">
-            <span id="marginVal" class="slider-val">4%</span>
-        </div>
-        <div class="settings-row">
-            <label>Translate</label>
-            <div class="btn-group">
-                <button class="t-btn" onclick="openTranslatePanel(_tlSelectedText || '')">🌐 Teks</button>
-                <button class="t-btn" onclick="translateFullPage()">🌐 Page</button>
-                <button class="t-btn" onclick="revertTranslate()">↶ Undo</button>
-            </div>
-        </div>
-        <div class="settings-row">
-            <label>Bahasa</label>
-            <select id="fullPageLang" onchange="updateFullPageLang()">
-                <option value="id">ID</option>
-                <option value="en">EN</option>
-                <option value="ms">MS</option>
-                <option value="ar">AR</option>
-                <option value="zh-CN">ZH-CN</option>
-                <option value="zh-TW">ZH-TW</option>
-                <option value="ja">JA</option>
-                <option value="ko">KO</option>
-                <option value="fr">FR</option>
-                <option value="de">DE</option>
-                <option value="es">ES</option>
-                <option value="pt">PT</option>
-                <option value="ru">RU</option>
-                <option value="nl">NL</option>
-                <option value="it">IT</option>
-                <option value="tr">TR</option>
-                <option value="th">TH</option>
-                <option value="vi">VI</option>
-                <option value="pl">PL</option>
-                <option value="hi">HI</option>
-                <option value="sv">SV</option>
-                <option value="da">DA</option>
-                <option value="fi">FI</option>
-                <option value="no">NO</option>
-                <option value="cs">CS</option>
-                <option value="ro">RO</option>
-                <option value="hu">HU</option>
-                <option value="sk">SK</option>
-                <option value="bg">BG</option>
-                <option value="uk">UK</option>
-                <option value="hr">HR</option>
-                <option value="lt">LT</option>
-                <option value="lv">LV</option>
-                <option value="et">ET</option>
-                <option value="sl">SL</option>
-                <option value="sq">SQ</option>
-                <option value="mk">MK</option>
-            </select>
-        </div>
-        <div class="settings-row actions-row">
-            <button class="action-btn" onclick="openBookmarks()">🔖 Bookmark</button>
-            <button class="action-btn" onclick="openStats()">📊 Statistik</button>
-        </div>
-    </div>
-
-    <div id="viewer"></div>
-
-    <!-- ── SCROLL-MODE FOOTER NAV ── -->
-    <div id="scrollFooter">
-        <button id="sfPrev" class="sf-btn" onclick="prevPage()">
-            <span class="sf-arrow">←</span>
-            <span class="sf-texts">
-                <span class="sf-name" id="sfPrevLabel">sebelumnya</span>
-            </span>
-        </button>
-
-        <div id="sfCenter">
-            <div id="sfChapterName"></div>
-            <div id="sfChapterIndex"></div>
-        </div>
-
-        <button id="sfNext" class="sf-btn" onclick="nextPage()">
-            <span class="sf-texts sf-texts-right">
-                <span class="sf-name" id="sfNextLabel">berikutnya</span>
-            </span>
-            <span class="sf-arrow">→</span>
-        </button>
-    </div>
-
-</div>
-
-<div id="sidebarBackdrop" class="notranslate" onclick="closeSidebar()"></div>
-<div id="sidebar" class="notranslate">
-    <div id="sidebarHeader">
-        <span>📑 Chapters</span>
-        <button onclick="closeSidebar()">✕</button>
-    </div>
-    <div id="toc"></div>
-</div>
-
-<div id="toast" class="notranslate"></div>
-
-<script>
-const BOOK_URL = <?= json_encode($book) ?>;
+const bookName = BOOK_URL.split("/").pop().replace(/\.epub$/i, "");
+document.title = bookName + " — EPUB Reader";
 const BOOK_KEY = "epub-" + BOOK_URL;
 
 /* ── CUSTOM REQUEST ── */
 const customRequest = (url, type) => {
-    const endpoint = `get-epub-part.php?book=${encodeURIComponent(BOOK_URL)}&file=${encodeURIComponent(url)}`;
+    const endpoint = `../get-epub-part.php?book=${encodeURIComponent(BOOK_URL)}&file=${encodeURIComponent(url)}`;
     return fetch(endpoint).then(r => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         if (type === 'xml')  return r.text().then(s => new DOMParser().parseFromString(s, 'application/xml'));
@@ -388,7 +62,7 @@ async function translateFullPage() {
         for (let chunk of chunks) {
             const textsToTranslate = chunk.map(c => c.text);
             try {
-                const res = await fetch('translate.php', {
+                const res = await fetch('../translate.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ texts: textsToTranslate, source: 'auto', target })
@@ -438,7 +112,7 @@ function revertTranslate() {
 // Keep single text translation for bubble selection
 async function translateText(text, target) {
     try {
-        const res = await fetch('translate.php', {
+        const res = await fetch('../translate.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ text, source: 'auto', target })
@@ -477,11 +151,11 @@ document.getElementById("marginSlider").value = margin;
 document.getElementById("marginVal").textContent = margin + "%";
 document.getElementById("fullPageLang").value = fullPageLang;
 const dlBtn = document.getElementById("downloadBtn");
-dlBtn.href = BOOK_URL;
+dlBtn.href = '../' + BOOK_URL;
 dlBtn.setAttribute("download", BOOK_URL.split("/").pop());
 
 /* ── EPUB INIT ── */
-const book = ePub(BOOK_URL, { request: customRequest });
+const book = ePub('../' + BOOK_URL, { request: customRequest });
 const rendition = book.renderTo("viewer", {
     width: "100%", height: "100%",
     spread: "none", flow: flowMode,
@@ -543,7 +217,7 @@ syncScrollFooterVisibility();
 
 /* ── TITLE ── */
 book.loaded.metadata.then(m => {
-    document.getElementById("bookTitle").innerText = m.title || <?= json_encode($name) ?>;
+    document.getElementById("bookTitle").innerText = m.title || bookName;
 }).catch(() => {});
 
 /* ── TOC ── */
@@ -825,6 +499,7 @@ function toggleToolbarVisibility() {
     toolbarVisible = !toolbarVisible;
     document.getElementById("toolbar").classList.toggle("hidden", !toolbarVisible);
     document.getElementById("progressBar").classList.toggle("toolbar-hidden", !toolbarVisible);
+    if (!toolbarVisible) closeSettings();
 }
 function resetToolbarTimer() {
     clearTimeout(toolbarTimeout);
@@ -1067,7 +742,7 @@ function handleKey(e) {
         if (document.getElementById("translateOverlay").classList.contains("open")) {
             closeTranslatePanel(); return;
         }
-        window.location.href = "index.php";
+        window.location.href = "index.html";
     }
     if (e.key === "b" || e.key === "B") toggleBookmarkCurrent();
     if (e.key === "f" || e.key === "F") openSearch();
@@ -1196,7 +871,7 @@ async function doTranslate() {
     _tlLastResult = '';
 
     try {
-        const res = await fetch('translate.php', {
+        const res = await fetch('../translate.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ text, source, target })
@@ -1260,6 +935,3 @@ function _fallbackCopy(str) {
     ta.remove();
 }
 
-</script>
-</body>
-</html>
