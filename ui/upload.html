@@ -4,35 +4,53 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
     <title>Upload Buku — EPUB Library</title>
+    <link rel="icon" type="image/x-icon" href="img/favicon.ico">
     <link rel="stylesheet" href="fonts/fonts.css">
+    <link rel="stylesheet" href="index.css">
     <link rel="stylesheet" href="upload.css">
 </head>
 <body>
 
-<header>
-    <a href="index.html" title="Kembali ke Library">←</a>
-    <h2>📤 Upload Buku</h2>
-</header>
+<div id="app-layout">
+    <!-- Sidebar -->
+    <aside class="app-sidebar">
+        <div class="sidebar-logo">
+            <h2>📚 EPUB</h2>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="index.html" class="nav-item">🏠 Library</a>
+            <a href="#" class="nav-item active">📤 Upload Book</a>
+        </nav>
+    </aside>
 
-<div class="page">
-    <p class="page-title">Tambah Buku Baru</p>
-    <p class="page-subtitle">Upload satu atau beberapa file .epub sekaligus ke library.</p>
+    <!-- Main Content -->
+    <main class="app-main">
+        <header class="top-nav" style="justify-content: flex-start; padding: 16px 24px;">
+            <h2 style="margin: 0; font-family: 'Playfair Display', serif; color: var(--accent2); font-size: 20px;">Upload Buku</h2>
+        </header>
 
-    <div id="dropZone">
-        <input type="file" id="fileInput" accept=".epub" multiple>
-        <span class="drop-icon">📂</span>
-        <div class="drop-title">Drag & drop file di sini</div>
-        <div class="drop-sub">atau <span>klik untuk memilih file</span> dari perangkat Anda</div>
-    </div>
+        <div class="container">
+            <div class="page" style="max-width: 640px; margin: 0 auto; padding: 20px 0;">
+                <p class="page-subtitle" style="color: var(--muted); margin-top: 0; margin-bottom: 32px;">Upload satu atau beberapa file .epub sekaligus ke library.</p>
 
-    <div id="fileList"></div>
+                <div id="dropZone">
+                    <input type="file" id="fileInput" accept=".epub" multiple>
+                    <span class="drop-icon">📂</span>
+                    <div class="drop-title">Drag & drop file di sini</div>
+                    <div class="drop-sub">atau <span style="color:var(--accent2); font-weight:500;">klik untuk memilih file</span> dari perangkat Anda</div>
+                </div>
 
-    <div class="actions" id="actions" style="display:none">
-        <button class="btn btn-primary" id="uploadBtn">⬆ Upload Semua</button>
-        <button class="btn btn-secondary" id="clearBtn">✕ Hapus Semua</button>
-    </div>
+                <div id="fileList"></div>
 
-    <div id="summary"></div>
+                <div class="actions" id="actions" style="display:none; margin-top: 24px; gap: 10px; flex-wrap: wrap;">
+                    <button class="page-btn" id="uploadBtn" style="background: var(--accent); color: #fff; border-color: var(--accent);">⬆ Upload Semua</button>
+                    <button class="page-btn" id="clearBtn">✕ Hapus Semua</button>
+                </div>
+
+                <div id="summary"></div>
+            </div>
+        </div>
+    </main>
 </div>
 
 <script src="js/upload.js"></script>

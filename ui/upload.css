@@ -1,100 +1,30 @@
-*, *::before, *::after { box-sizing: border-box; }
+:root {
+    --success:   #4caf50;
+    --success2:  #81c784;
+    --error:     #e05555;
+    --error2:    #ff8080;
+}
 
-        :root {
-            --bg:        #0a0a0a;
-            --surface:   rgba(20, 20, 20, 0.75);
-            --card:      #171717;
-            --card-hover:#222222;
-            --border:    rgba(255, 255, 255, 0.08);
-            --accent:    #dca855;
-            --accent2:   #f3cd8b;
-            --accent-glow: rgba(220, 168, 85, 0.15);
-            --text:      #f2ede9;
-            --muted:     #8a837b;
-            --success:   #4caf50;
-            --success2:  #81c784;
-            --error:     #e05555;
-            --error2:    #ff8080;
-        }
-
-        body {
-            font-family: 'Inter', sans-serif;
-            margin: 0;
-            background: var(--bg);
-            color: var(--text);
-            min-height: 100vh;
-        }
-
-        /* ── HEADER ── */
-        header {
-            background: var(--surface);
-            border-bottom: 1px solid var(--border);
-            padding: 0 20px;
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            height: 58px;
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            backdrop-filter: blur(12px);
-        }
-        header a {
-            color: var(--muted);
-            text-decoration: none;
-            font-size: 18px;
-            line-height: 1;
-            padding: 6px;
-            border-radius: 8px;
-            transition: color 0.15s, background 0.15s;
-        }
-        header a:hover { color: var(--text); background: rgba(255,255,255,0.06); }
-        header h2 {
-            margin: 0;
-            font-family: 'Playfair Display', serif;
-            font-size: 18px;
-            font-weight: 600;
-            color: var(--accent2);
-        }
-
-        /* ── PAGE ── */
-        .page {
-            max-width: 640px;
-            margin: 0 auto;
-            padding: 40px 20px 60px;
-        }
-
-        .page-title {
-            font-family: 'Playfair Display', serif;
-            font-size: 22px;
-            font-weight: 600;
-            color: var(--accent2);
-            margin: 0 0 6px;
-        }
-        .page-subtitle {
-            font-size: 13.5px;
-            color: var(--muted);
-            margin: 0 0 32px;
-        }
-
-        /* ── DROP ZONE ── */
+/* ── DROP ZONE ── */
         #dropZone {
             border: 2px dashed var(--border);
-            border-radius: 16px;
-            padding: 52px 24px;
+            border-radius: 20px;
+            padding: 64px 24px;
             text-align: center;
             cursor: pointer;
-            transition: border-color 0.2s, background 0.2s;
-            background: var(--card);
+            transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+            background: var(--surface2);
             position: relative;
+            backdrop-filter: blur(12px);
         }
         #dropZone:hover,
         #dropZone.over {
             border-color: var(--accent);
-            background: rgba(220,168,85,0.08);
-            box-shadow: 0 0 20px var(--accent-glow);
+            background: rgba(129, 140, 248, 0.08); /* Subtle highlight from global vars */
+            box-shadow: 0 8px 32px var(--accent-glow);
+            transform: scale(1.02);
         }
-        #dropZone.over { border-style: solid; transform: scale(1.02); }
+        #dropZone.over { border-style: solid; }
 
         #dropZone input[type="file"] {
             position: absolute;
@@ -138,14 +68,14 @@
         }
 
         .file-item {
-            background: var(--card);
+            background: var(--surface2);
             border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 12px 16px;
+            border-radius: 16px;
+            padding: 16px 20px;
             display: flex;
             align-items: center;
-            gap: 12px;
-            transition: border-color 0.2s;
+            gap: 16px;
+            transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
         }
         .file-item.success { border-color: rgba(76,175,80,0.4); }
         .file-item.error   { border-color: rgba(224,85,85,0.4); }
@@ -208,44 +138,7 @@
             width: 100%;
         }
 
-        /* ── ACTION BUTTONS ── */
-        .actions {
-            margin-top: 28px;
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-
-        .btn {
-            padding: 10px 22px;
-            border-radius: 10px;
-            border: 1px solid var(--border);
-            font-family: 'Inter', sans-serif;
-            font-size: 13.5px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: background 0.15s, border-color 0.15s, color 0.15s;
-            -webkit-tap-highlight-color: transparent;
-        }
-        .btn-primary {
-            background: var(--accent);
-            color: #fff;
-            border-color: var(--accent);
-        }
-        .btn-primary:hover { background: var(--accent2); border-color: var(--accent2); }
-        .btn-primary:disabled {
-            opacity: 0.4;
-            cursor: not-allowed;
-        }
-        .btn-secondary {
-            background: var(--surface);
-            color: var(--text);
-        }
-        .btn-secondary:hover {
-            background: var(--card-hover);
-            border-color: var(--accent);
-            color: var(--accent2);
-        }
+        /* (Action buttons use .page-btn from index.css) */
 
         /* ── SUMMARY ── */
         #summary {
@@ -272,8 +165,4 @@
             color: var(--error2);
         }
 
-        /* ── SCROLLBAR ── */
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #3a3530; border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: #4a4540; }
+        
