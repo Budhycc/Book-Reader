@@ -2,210 +2,222 @@
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 
-A beautiful, self-hosted web application for reading your EPUB book collection locally. Built with pure PHP on the backend and `epub.js` on the frontend — featuring a modern aesthetic, no heavy frameworks, no database, and zero complex setup.
+Aplikasi web *self-hosted* yang indah untuk membaca koleksi buku EPUB Anda secara lokal. Dibangun dengan murni PHP pada backend dan `epub.js` pada frontend — menampilkan estetika modern, tanpa framework berat, tanpa database, dan tanpa setup yang rumit.
 
 ---
 
-## Table of Contents
+## Daftar Isi
 
-- [Key Features](#key-features)
-- [Directory Structure](#directory-structure)
-- [Server Requirements](#server-requirements)
-- [Installation](#installation)
-- [Usage Guide](#usage-guide)
-- [Data Storage](#data-storage)
-- [Cover Caching](#cover-caching)
+- [Fitur Utama](#fitur-utama)
+- [Struktur Direktori](#struktur-direktori)
+- [Persyaratan Server](#persyaratan-server)
+- [Instalasi](#instalasi)
+- [Panduan Penggunaan](#panduan-penggunaan)
+- [Penyimpanan Data](#penyimpanan-data)
+- [Caching Sampul](#caching-sampul)
 - [Internal API Endpoints](#internal-api-endpoints)
-- [Security](#security)
-- [Adding New Fonts](#adding-new-fonts)
-- [Dependencies](#dependencies)
-- [Troubleshooting](#troubleshooting)
-- [Credits](#credits)
-- [License](#license)
+- [Keamanan](#keamanan)
+- [Menambahkan Font Baru](#menambahkan-font-baru)
+- [Dependensi](#dependensi)
+- [Penyelesaian Masalah (Troubleshooting)](#penyelesaian-masalah-troubleshooting)
+- [Kredit](#kredit)
+- [Lisensi](#lisensi)
 
 ---
 
-## Key Features
+## Fitur Utama
 
-### 📖 Library Management
-- **Dynamic Views**: Easily toggle between beautifully designed **grid** and **list** layouts.
-- **Smart Cover Extraction**: Book covers are automatically extracted from the EPUB files.
-- **Lazy Loading**: Covers lazy load with elegant shimmer effects for optimal performance.
-- **Instant Search**: Real-time filtering by book title.
-- **Reading Progress Badge**: "Continue reading" badge for books you've already started.
+### 📖 Manajemen Perpustakaan
+- **Tampilan Dinamis**: Berpindah dengan mudah antara tata letak **grid** (kisi) dan **list** (daftar) yang dirancang dengan indah.
+- **Ekstraksi Sampul Pintar**: Sampul buku diekstrak secara otomatis dari file EPUB.
+- **Lazy Loading**: Sampul dimuat secara *lazy load* dengan efek *shimmer* yang elegan untuk performa optimal.
+- **Pencarian Instan**: Pemfilteran *real-time* berdasarkan judul buku.
+- **Lencana Progres Baca**: Terdapat lencana "Lanjutkan membaca" untuk buku yang sudah mulai Anda baca.
 
-### 👓 Reader Experience
-- **Fluid Navigation**: Turn pages via on-screen buttons, **swipe gestures**, or keyboard shortcuts.
-- **Progress Tracking**: Visual progress bar indicating remaining reading time.
-- **Immersive Mode**: Auto-hiding toolbar that vanishes while reading and reappears on tap.
-- **Multiple Themes**: Switch between Light ☀, Sepia 📜, and Dark 🌙 modes.
-- **Typography Control**: Adjust font sizes (70%–200%) and select from locally hosted premium fonts.
-- **Screen Dimming**: Built-in slider to dim the screen without altering system brightness.
-- **Layout Modes**: Toggle between continuous scroll and paginated views.
-- **Global Search**: Search for specific text across the entire book.
-- **Inline Translation**: Select text to translate instantly via Google Translate.
-- **Bookmarks**: Save and manage bookmarks with a history list.
-- **Reading Stats**: Track total pages read, time spent, daily streaks, and view a 7-day reading graph.
-- **Seamless State**: Your last reading position is automatically saved.
-- **Direct Download**: Download the EPUB file directly from the reader interface.
+### 👓 Pengalaman Membaca
+- **Navigasi Mulus**: Membalik halaman melalui tombol di layar, **gestur usap (swipe)**, atau pintasan keyboard.
+- **Pelacakan Progres**: Bilah progres visual yang menunjukkan sisa waktu membaca.
+- **Mode Imersif**: Toolbar yang otomatis bersembunyi saat membaca dan muncul kembali saat diketuk.
+- **Banyak Tema**: Beralih antara mode Terang ☀, Sepia 📜, dan Gelap 🌙.
+- **Kontrol Tipografi**: Sesuaikan ukuran font (70%–200%) dan pilih dari font premium yang di-*host* secara lokal.
+- **Peredup Layar**: *Slider* bawaan untuk meredupkan layar tanpa mengubah kecerahan sistem (*brightness*).
+- **Mode Tata Letak**: Beralih antara mode gulir terus-menerus (*scroll*) dan mode halaman (*paginated*).
+- **Pencarian Global**: Mencari teks tertentu di seluruh isi buku.
+- **Terjemahan Sebaris**: Pilih teks untuk diterjemahkan secara instan melalui Google Translate.
+- **Bookmark (Penanda)**: Simpan dan kelola *bookmark* dengan daftar riwayat.
+- **Statistik Membaca**: Lacak total halaman yang dibaca, waktu yang dihabiskan, rekor berturut-turut (streak), dan lihat grafik baca 7 hari.
+- **Status Berkelanjutan**: Posisi membaca terakhir Anda otomatis tersimpan.
+- **Unduh Langsung**: Unduh file EPUB langsung dari antarmuka pembaca.
 
 ---
 
-## Directory Structure
+## Struktur Direktori
 
 ```text
 /
-├── books/              # Folder to store your .epub files
+├── books/              # Folder untuk menyimpan file .epub Anda
 ├── cache/
-│   └── covers/         # Auto-generated disk cache for resized book covers
-├── ui/                 # Static UI assets and frontend files
-│   ├── fonts/          # Self-hosted local fonts (no external CDNs)
-│   ├── img/            # Static images and favicons
-│   ├── js/             # JavaScript files (epub.js, etc.)
-│   ├── index.html      # Library page (book list)
-│   ├── index.css       # Styling for the library page
-│   ├── reader.html     # EPUB reader page
-│   ├── reader.css      # Styling for the reader page
-│   ├── translate-reader.css # Styling for the translation panel
-│   ├── upload.html     # Book upload page
-│   └── upload.css      # Styling for the upload page
-├── get-books.php       # API endpoint for listing books
-├── get-cover.php       # Extracts, resizes, and caches EPUB covers
-├── get-epub-part.php   # Streams internal EPUB content to the browser
-├── get-meta.php        # Extracts metadata (title, author) from EPUB files
-├── index.php           # Redirects to ui/index.html
-├── translate.php       # API endpoint for Google Translate integration
-├── upload.php          # API endpoint for handling EPUB uploads
-├── LICENSE             # Project license
-└── readme.md           # This documentation
+│   └── covers/         # Cache disk otomatis untuk sampul buku yang diubah ukurannya
+├── ui/                 # Aset UI statis dan file frontend
+│   ├── fonts/          # Font lokal (tanpa CDN eksternal)
+│   ├── img/            # Gambar statis dan favicon
+│   ├── js/             # File JavaScript (epub.js, dll.)
+│   ├── index.html      # Halaman perpustakaan (daftar buku)
+│   ├── index.css       # Gaya untuk halaman perpustakaan
+│   ├── reader.html     # Halaman pembaca EPUB
+│   ├── reader.css      # Gaya untuk halaman pembaca
+│   ├── translate-reader.css # Gaya untuk panel terjemahan
+│   ├── upload.html     # Halaman unggah buku
+│   └── upload.css      # Gaya untuk halaman unggah
+├── get-books.php       # API endpoint untuk mendaftar buku
+├── get-cover.php       # Mengekstrak, mengubah ukuran, dan men-cache sampul EPUB
+├── get-epub-part.php   # Mengalirkan konten internal EPUB ke browser
+├── get-meta.php        # Mengekstrak metadata (judul, penulis) dari EPUB
+├── index.php           # Mengarahkan ke ui/index.html
+├── translate.php       # API endpoint untuk integrasi Google Translate
+├── upload.php          # API endpoint untuk menangani unggahan EPUB
+├── start.sh            # Skrip pintasan untuk menjalankan server
+├── php.ini             # Konfigurasi ukuran unggahan PHP (500MB)
+├── .user.ini           # Konfigurasi ukuran unggahan PHP untuk server spesifik
+├── LICENSE             # Lisensi proyek
+└── readme.md           # Dokumentasi ini
 ```
 
 ---
 
-## Server Requirements
+## Persyaratan Server
 
-| Requirement | Details |
+| Persyaratan | Detail |
 |-----------|------------|
 | PHP | ≥ 7.4 |
-| PHP Extensions | `zip`, `dom`, `fileinfo` |
-| PHP Extensions (optional)| `gd` — for automatic cover resizing & compression |
+| Ekstensi PHP | `zip`, `dom`, `fileinfo` |
+| Ekstensi PHP (opsional)| `gd` — untuk mengubah ukuran dan mengompresi sampul otomatis |
 | Web Server | Apache / Nginx / PHP built-in server |
-| Browser | Modern versions of Chrome, Firefox, Safari, Edge |
+| Browser | Versi modern dari Chrome, Firefox, Safari, Edge |
 
-> **Note on GD:** If the `gd` extension is active, covers will be resized to a maximum of 300px and compressed (JPEG quality 30) before being cached to disk. Without GD, the original cover from the EPUB is displayed directly.
+> **Catatan mengenai GD:** Jika ekstensi `gd` aktif, sampul akan diubah ukurannya menjadi maksimal 300px dan dikompresi (kualitas JPEG 30) sebelum disimpan ke cache disk. Tanpa GD, sampul asli dari EPUB akan ditampilkan langsung.
 
 ---
 
-## Installation
+## Instalasi
 
-### 1. Clone or Download the Project
+### 1. Klon atau Unduh Proyek
 
 ```bash
 git clone https://github.com/Budhycc/Book-Reader.git
 cd Book-Reader
 ```
 
-### 2. Add Your Books
+### 2. Tambahkan Buku Anda
 
-Copy your `.epub` files into the `books/` directory:
-
-```bash
-cp ~/Downloads/my-book.epub books/
-```
-
-Alternatively, you can upload books directly using the web interface via `ui/upload.html`.
-
-### 3. Run the Server
-
-**Using the built-in PHP server (for development):**
+Salin file `.epub` Anda ke dalam direktori `books/`:
 
 ```bash
-php -S localhost:8080
+cp ~/Downloads/buku-saya.epub books/
 ```
 
-Open `http://localhost:8080` in your web browser.
+Sebagai alternatif, Anda dapat mengunggah buku langsung menggunakan antarmuka web melalui halaman Unggah.
 
-**Using Apache / Nginx:**
-Point your document root to the project folder and ensure PHP is enabled.
+### 3. Jalankan Server
+
+**Menggunakan PHP built-in server (untuk lokal/pengembangan):**
+
+Anda dapat menggunakan skrip pintasan yang telah disediakan agar ukuran maksimal unggahan (upload limit) otomatis menjadi 500MB:
+
+```bash
+./start.sh
+```
+
+Atau menjalankannya secara manual:
+
+```bash
+php -c php.ini -S 0.0.0.0:8000
+```
+
+Buka `http://localhost:8000` (atau IP lokal Anda) di browser web.
+
+**Menggunakan Apache / Nginx:**
+Arahkan *document root* web server Anda ke folder proyek ini dan pastikan PHP telah diaktifkan. File `.user.ini` yang tersedia akan mengatur limit unggahan.
 
 ---
 
-## Usage Guide
+## Panduan Penggunaan
 
-### Library Interface
-- Open `index.php` (which redirects to `ui/index.html`) to browse your collection.
-- Type in the search box to quickly filter books by title.
-- Use the ⊞ and ≡ icons to switch between grid and list views.
-- Click a book cover or title to start reading.
+### Antarmuka Perpustakaan
+- Buka `index.php` (yang mengarah ke `ui/index.html`) untuk menjelajahi koleksi Anda.
+- Ketik di kotak pencarian untuk memfilter buku berdasarkan judul dengan cepat.
+- Gunakan ikon ⊞ dan ≡ untuk beralih antara tampilan *grid* dan *list*.
+- Klik sampul atau judul buku untuk mulai membaca.
 
-### Reader — Navigation
+### Pembaca — Navigasi
 
-| Action | How to Trigger |
+| Tindakan | Cara Mengaktifkan |
 |------|------|
-| Next Page | ▶ button, swipe left, `→`, or `Space` |
-| Previous Page | ◀ button, swipe right, or `←` |
-| Back to Library | 🏠 button or press `Esc` |
-| Toggle Toolbar | Tap the center of the screen |
+| Halaman Berikutnya | Tombol ▶, usap kiri, `→`, atau `Spasi` |
+| Halaman Sebelumnya | Tombol ◀, usap kanan, atau `←` |
+| Kembali ke Perpustakaan| Tombol 🏠 atau tekan `Esc` |
+| Tampilkan/Sembunyikan Toolbar | Ketuk bagian tengah layar |
 
-### Reader — Features
+### Pembaca — Fitur
 
-| Feature | Access |
+| Fitur | Akses |
 |-------|-----------|
-| Table of Contents (TOC) | ☰ button on the left of the toolbar |
-| Bookmark this page | 🔖 button or press `B` |
-| Search text | 🔍 button or press `F` |
-| Display Settings | ⚙ button on the right of the toolbar |
-| Reading Statistics | ⚙ Settings → Statistics |
-| Download Book | ⚙ Settings → ⬇ Download |
+| Daftar Isi (TOC) | Tombol ☰ di sebelah kiri toolbar |
+| Bookmark halaman ini | Tombol 🔖 atau tekan `B` |
+| Cari teks | Tombol 🔍 atau tekan `F` |
+| Pengaturan Tampilan | Tombol ⚙ di sebelah kanan toolbar |
+| Statistik Membaca | ⚙ Pengaturan → 📊 Statistik |
+| Unduh Buku | ⚙ Pengaturan → ⬇ Unduh |
 
-### Reader — Display Settings
+### Pembaca — Pengaturan Tampilan
 
-Open the settings panel (⚙) to adjust:
-- **Font Size**: A− to decrease, A+ to increase, ↺ to reset.
-- **Font Family**: Choose between premium local fonts.
-- **Theme**: ☀ Light / 📜 Sepia / 🌙 Dark.
-- **View Mode**: Toggle between paginated (Page) and continuous Scroll modes.
-- **Dimming Slider**: Reduce screen brightness purely via software overlay.
+Buka panel pengaturan (⚙) untuk menyesuaikan:
+- **Ukuran Font**: A− untuk memperkecil, A+ untuk memperbesar, ↺ untuk reset.
+- **Keluarga Font**: Pilih di antara font lokal premium.
+- **Tema**: ☀ Terang / 📜 Sepia / 🌙 Gelap.
+- **Mode Tampilan**: Beralih antara mode *Page* (halaman) dan *Scroll* (gulir).
+- **Peredup (Dimmer)**: Mengurangi kecerahan layar secara *software*.
+- **Spasi dan Margin**: Atur spasi baris dan jarak tepi teks.
 
 ---
 
-## Data Storage
+## Penyimpanan Data
 
-All user data and reading progress are stored strictly in the browser's **localStorage** — no personal data is sent to or saved on the server.
+Semua data pengguna dan progres membaca disimpan secara ketat di dalam **localStorage** browser — tidak ada data pribadi yang dikirim atau disimpan di server.
 
-| Data Type | localStorage Key |
+| Jenis Data | Kunci localStorage |
 |------|-----------------|
-| Last Reading Position | `epub-books/book-name.epub` |
-| Font Size | `reader-fontSize` |
-| Font Family | `reader-fontFamily` |
-| Theme | `reader-theme` |
-| View Mode | `reader-flow` |
-| Bookmarks | `bm-books/book-name.epub` |
-| Reading Statistics | `stats-books/book-name.epub` |
+| Posisi Baca Terakhir | `epub-books/nama-buku.epub` |
+| Ukuran Font | `reader-fontSize` |
+| Keluarga Font | `reader-fontFamily` |
+| Tema | `reader-theme` |
+| Mode Tampilan | `reader-flow` |
+| Bookmark | `bm-books/nama-buku.epub` |
+| Statistik Membaca | `stats-books/nama-buku.epub` |
 
-Book covers are cached in **sessionStorage** on the browser and written to **disk cache** (`cache/covers/`) on the server to optimize loading speeds.
+Sampul buku di-cache di **sessionStorage** pada browser dan ditulis ke **cache disk** (`cache/covers/`) pada server untuk mengoptimalkan kecepatan memuat.
 
 ---
 
-## Cover Caching
+## Caching Sampul
 
-`get-cover.php` utilizes a dual-layer caching system:
+`get-cover.php` menggunakan sistem caching dua lapis:
 
-**1. Server-side Disk Cache**
-- Resized covers are saved in `cache/covers/` as `.jpg` files.
-- Subsequent requests are served directly from disk without re-extracting the ZIP.
-- Cache keys are generated based on the book's filename and modification time, automatically invalidating if a book file is updated.
+**1. Cache Disk Sisi Server**
+- Sampul yang diubah ukurannya disimpan di `cache/covers/` sebagai file `.jpg`.
+- Permintaan berikutnya dilayani langsung dari disk tanpa mengekstrak ulang ZIP.
+- Kunci cache dihasilkan berdasarkan nama file buku dan waktu modifikasi, otomatis dibatalkan (invalidate) jika file buku diperbarui.
 
-**2. Client-side Browser Cache**
-- Uses `Cache-Control: public, max-age=31536000, immutable` alongside `ETag` headers.
-- The browser will not fetch the cover again while the cache is valid.
+**2. Cache Browser Sisi Klien**
+- Menggunakan header `Cache-Control: public, max-age=31536000, immutable` bersama dengan header `ETag`.
+- Browser tidak akan mengambil sampul lagi selama cache masih valid.
 
-**Automatic Cleanup**
-- There is a 1% probability per cover request to trigger an automatic cleanup routine.
-- Orphaned cache files (covers belonging to books that were deleted from `books/`) are automatically removed.
-- No manual intervention or cron jobs are necessary.
+**Pembersihan Otomatis**
+- Terdapat peluang 1% setiap kali ada permintaan sampul untuk memicu rutinitas pembersihan otomatis.
+- File cache yatim piatu (sampul buku yang bukunya sudah dihapus dari folder `books/`) akan otomatis dihapus.
+- Tidak diperlukan intervensi manual atau cron job.
 
-To manually clear the server cache:
+Untuk membersihkan cache server secara manual:
 ```bash
 rm -rf cache/covers/
 ```
@@ -215,110 +227,110 @@ rm -rf cache/covers/
 ## Internal API Endpoints
 
 ### `get-cover.php`
-Extracts, resizes, and caches the cover image from an EPUB file.
+Mengekstrak, mengubah ukuran, dan men-cache gambar sampul dari file EPUB.
 ```
-GET get-cover.php?book=books/name.epub
+GET get-cover.php?book=books/nama.epub
 ```
 
 ### `get-epub-part.php`
-Streams internal EPUB content (HTML, CSS, images, fonts) to the browser.
+Mengalirkan konten internal EPUB (HTML, CSS, gambar, font) ke browser.
 ```
-GET get-epub-part.php?book=books/name.epub&file=path/inside/epub.xhtml
+GET get-epub-part.php?book=books/nama.epub&file=path/di/dalam/epub.xhtml
 ```
 
 ### `upload.php`
-Receives an EPUB file via POST and saves it to the `books/` directory.
+Menerima file EPUB melalui POST dan menyimpannya ke direktori `books/`.
 ```
 POST upload.php
 Content-Type: multipart/form-data
 ```
 
 ### `get-meta.php`
-Extracts metadata (title, author) from EPUB files.
+Mengekstrak metadata (judul, penulis) dari file EPUB.
 ```
-GET get-meta.php                    # All books
-GET get-meta.php?book=books/name.epub  # Specific book
+GET get-meta.php                    # Semua buku
+GET get-meta.php?book=books/nama.epub  # Buku tertentu
 ```
 
 ### `translate.php`
-Translates text using the Google Translate API.
+Menerjemahkan teks menggunakan API Google Translate.
 ```
 POST translate.php
 Content-Type: application/json
 Body: {"text": "Hello world", "source": "en", "target": "id"}
 ```
 
-All endpoints include security validations to ensure only `.epub` files within the `books/` directory can be accessed, preventing path traversal attacks.
+Semua endpoint menyertakan validasi keamanan untuk memastikan hanya file `.epub` di dalam direktori `books/` yang dapat diakses, mencegah serangan *path traversal*.
 
 ---
 
-## Security
+## Keamanan
 
-- Book paths are strictly validated using regex: only `books/*.epub` is permitted.
-- `get-epub-part.php` actively blocks `..` and absolute paths.
-- Uploads are restricted strictly to `.epub` files, with filenames automatically sanitized.
-- EPUB content is sandboxed in an iframe to prevent arbitrary code execution.
-- No authentication is required, making it perfect for secure local or intranet use.
+- Jalur buku divalidasi dengan ketat menggunakan regex: hanya `books/*.epub` yang diizinkan.
+- `get-epub-part.php` secara aktif memblokir `..` dan jalur absolut.
+- Unggahan dibatasi khusus untuk file `.epub`, dengan nama file yang otomatis dibersihkan (*sanitized*).
+- Konten EPUB dikotakpasir (*sandboxed*) dalam sebuah *iframe* untuk mencegah eksekusi kode acak.
+- Tidak diperlukan autentikasi, menjadikannya sempurna untuk penggunaan lokal atau intranet yang aman.
 
 ---
 
-## Adding New Fonts
+## Menambahkan Font Baru
 
-To add custom fonts, open `ui/reader.html` and append a new option inside the `<select id="fontSelect">` element:
+Untuk menambahkan font kustom, buka `ui/reader.html` dan tambahkan opsi baru di dalam elemen `<select id="fontSelect">`:
 
 ```html
 <option value="Literata">Literata</option>
 ```
 
-Ensure the font is correctly imported via `@font-face` within `ui/fonts/fonts.css`. All fonts are hosted locally to ensure complete offline functionality without relying on external CDNs.
+Pastikan font tersebut diimpor dengan benar menggunakan `@font-face` di dalam `ui/fonts/fonts.css`. Semua font di-host secara lokal untuk memastikan fungsionalitas luring (offline) yang lengkap.
 
 ---
 
-## Dependencies
+## Dependensi
 
-| Library | Version | License |
+| Pustaka (Library) | Versi | Lisensi |
 |---------|-------|---------|
 | [epub.js](https://github.com/futurepress/epub.js) | 0.3.x | FreeBSD |
 | [JSZip](https://stuk.github.io/jszip/) | 3.10.x | MIT |
-| Local Fonts | — | OFL / Various |
+| Font Lokal | — | OFL / Beragam |
 
-All dependencies, including font files and JS libraries, are strictly served locally. The application makes zero requests to external CDNs for core reading functionalities.
-
----
-
-## Troubleshooting
-
-**Covers aren't loading**
-Ensure the PHP `zip` extension is installed and enabled. You can check this by running `php -m | grep zip`.
-
-**Covers load slowly the first time**
-This is expected behavior. The cover is extracted from the ZIP archive and resized on the initial request. All subsequent loads will be served rapidly from the disk cache.
-
-**Cover cache doesn't update when a book is replaced**
-You can manually clear it by running `rm -rf cache/covers/`, or wait for the automatic cleanup routine to trigger (1% chance per request).
-
-**The GD extension is missing**
-If GD isn't installed, covers will display in their original sizes without resizing. To install it on Debian/Ubuntu: `sudo apt install php-gd`. On Windows (XAMPP/Laragon): uncomment `extension=gd` in your `php.ini`.
-
-**Book fails to open**
-Ensure the EPUB file is valid using tools like EPUBCheck. Corrupt or DRM-protected files are not supported.
-
-**Font styles change unexpectedly**
-`epub.js` renders books inside an iframe. Some EPUBs have hardcoded internal CSS that overrides reader settings. This is normal behavior dictated by the book's formatting.
-
-**Reading progress isn't showing**
-Generating book locations (`book.locations.generate`) takes a few moments. Progress will appear once this is completed, typically 1–5 seconds after opening a book.
+Semua dependensi, termasuk file font dan pustaka JS, dilayani secara lokal. Aplikasi sama sekali tidak membuat permintaan ke CDN eksternal untuk fungsi membaca intinya.
 
 ---
 
-## Credits
+## Penyelesaian Masalah (Troubleshooting)
 
-- [epub.js](https://github.com/futurepress/epub.js) - Powerful EPUB reading library for the browser.
-- [JSZip](https://stuk.github.io/jszip/) - Library for creating, reading and editing .zip files.
-- Google Translate API - Integrated for seamless inline text translation.
+**Sampul tidak dimuat**
+Pastikan ekstensi PHP `zip` sudah diinstal dan diaktifkan. Anda dapat memeriksanya dengan menjalankan `php -m | grep zip`.
+
+**Sampul dimuat lambat pada kali pertama**
+Ini adalah perilaku normal. Sampul diekstrak dari arsip ZIP dan diubah ukurannya pada permintaan awal. Semua pemuatan berikutnya akan disajikan dengan cepat dari cache disk.
+
+**Cache sampul tidak diperbarui saat buku diganti**
+Anda dapat membersihkannya secara manual dengan menjalankan `rm -rf cache/covers/`, atau tunggu rutinitas pembersihan otomatis terpicu (peluang 1% per permintaan).
+
+**Ekstensi GD tidak ditemukan**
+Jika GD tidak terinstal, sampul akan ditampilkan dalam ukuran aslinya tanpa diubah ukurannya. Untuk menginstalnya di Debian/Ubuntu: `sudo apt install php-gd`. Di Windows (XAMPP/Laragon): hapus tanda komentar pada `extension=gd` di `php.ini` Anda.
+
+**Buku gagal dibuka**
+Pastikan file EPUB tersebut valid menggunakan alat seperti EPUBCheck. File yang korup atau dilindungi DRM tidak didukung.
+
+**Gaya font berubah tanpa diduga**
+`epub.js` merender buku di dalam *iframe*. Beberapa EPUB memiliki CSS internal (*hardcoded*) yang menimpa pengaturan pembaca. Ini adalah perilaku normal yang ditentukan oleh pemformatan bawaan buku tersebut.
+
+**Progres membaca tidak muncul**
+Pembuatan lokasi buku (`book.locations.generate`) membutuhkan beberapa saat. Progres akan muncul setelah proses ini selesai, biasanya 1–5 detik setelah buku dibuka.
 
 ---
 
-## License
+## Kredit
 
-This project is licensed under the [AGPL-3.0 License](LICENSE).
+- [epub.js](https://github.com/futurepress/epub.js) - Pustaka pembaca EPUB yang tangguh untuk browser.
+- [JSZip](https://stuk.github.io/jszip/) - Pustaka untuk membuat, membaca, dan mengedit file .zip.
+- Google Translate API - Terintegrasi untuk terjemahan teks sebaris yang mulus.
+
+---
+
+## Lisensi
+
+Proyek ini dilisensikan di bawah [AGPL-3.0 License](LICENSE).
