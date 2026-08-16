@@ -155,134 +155,152 @@
 
 <div id="app" class="notranslate">
 
-    <div class="toolbar" id="toolbar">
+    <!-- FLOATING TOOLBAR -->
+    <div class="toolbar floating-toolbar" id="toolbar">
         <button class="t-btn" onclick="toggleSidebar()" title="Chapters">☰</button>
         <a class="t-btn" href="index.html" title="Library">🏠</a>
-        <button class="t-btn" onclick="prevPage()" title="Sebelumnya">◀</button>
-        <button class="t-btn" onclick="nextPage()" title="Berikutnya">▶</button>
-        <span id="bookTitle"></span>
-        <span id="progress"></span>
+        <button class="t-btn" onclick="prevPage()" title="Previous">◀</button>
+        <button class="t-btn" onclick="nextPage()" title="Next">▶</button>
+        <div class="toolbar-center">
+            <span id="bookTitle"></span>
+            <span id="progress"></span>
+        </div>
         <button class="t-btn" onclick="toggleBookmarkCurrent()" id="bmBtn" title="Bookmark">🔖</button>
-        <button class="t-btn" onclick="openSearch()" title="Cari">🔍</button>
-        <button class="t-btn" onclick="translateFullPage()" title="Terjemahkan halaman penuh">🌐</button>
-        <button class="t-btn" onclick="revertTranslate()" title="Batalkan terjemahan">↶</button>
-        <button class="t-btn" onclick="toggleSettings()" title="Pengaturan">⚙</button>
+        <button class="t-btn" onclick="openSearch()" title="Search">🔍</button>
+        <button class="t-btn" onclick="translateFullPage()" title="Translate Page">🌐</button>
+        <button class="t-btn" onclick="toggleSettings()" title="Settings">⚙</button>
+        <button class="t-btn" onclick="toggleToolbarVisibility()" title="Hide Toolbar">⬇</button>
     </div>
 
-    <div id="progressBar">
+    <!-- PERSISTENT UI TOGGLE BUTTON -->
+    <button id="uiToggleBtn" class="notranslate" onclick="toggleToolbarVisibility()" title="Show Toolbar">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="18 15 12 9 6 15"></polyline>
+        </svg>
+    </button>
+
+    <!-- FLOATING PROGRESS BAR -->
+    <div id="progressBar" class="floating-progress">
         <div id="progressFill"></div>
         <div id="etaLabel"></div>
     </div>
 
-    <div id="settingsDrawer">
-        <div class="settings-row">
-            <label>Ukuran</label>
-            <div class="btn-group">
-                <button class="t-btn" onclick="smallerText()">A−</button>
-                <button class="t-btn" onclick="biggerText()">A+</button>
-                <button class="t-btn" onclick="resetFont()">↺</button>
+    <!-- SETTINGS PANEL (Off-canvas) -->
+    <div id="settingsDrawer" class="overlay-panel notranslate">
+        <div class="overlay-header">
+            <span>⚙ Pengaturan</span>
+            <button onclick="toggleSettings()">✕</button>
+        </div>
+        <div class="settings-content">
+            <div class="settings-row">
+                <label>Ukuran</label>
+                <div class="btn-group">
+                    <button class="t-btn" onclick="smallerText()">A−</button>
+                    <button class="t-btn" onclick="biggerText()">A+</button>
+                    <button class="t-btn" onclick="resetFont()">↺</button>
+                </div>
             </div>
-        </div>
-        <div class="settings-row">
-            <label>Font</label>
-            <select id="fontSelect" onchange="changeFont(this.value)">
-                <option value="serif">Serif</option>
-                <option value="sans-serif">Sans</option>
-                <option value="Georgia">Georgia</option>
-                <option value="Times New Roman">Times</option>
-            </select>
-        </div>
-        <div class="settings-row">
-            <label>Tema</label>
-            <div class="btn-group theme-btns">
-                <button class="theme-btn" data-theme="light" onclick="setTheme('light')">☀ Terang</button>
-                <button class="theme-btn" data-theme="sepia" onclick="setTheme('sepia')">📜 Sepia</button>
-                <button class="theme-btn" data-theme="dark" onclick="setTheme('dark')">🌙 Gelap</button>
+            <div class="settings-row">
+                <label>Font</label>
+                <select id="fontSelect" onchange="changeFont(this.value)">
+                    <option value="serif">Serif</option>
+                    <option value="sans-serif">Sans</option>
+                    <option value="Georgia">Georgia</option>
+                    <option value="Times New Roman">Times</option>
+                </select>
             </div>
-        </div>
-        <div class="settings-row">
-            <label>Mode</label>
-            <div class="btn-group">
-                <button class="t-btn" id="flowBtn" onclick="toggleFlow()">📄 Scroll</button>
-                <a class="t-btn" id="downloadBtn" title="Download">⬇ Unduh</a>
+            <div class="settings-row">
+                <label>Tema</label>
+                <div class="btn-group theme-btns">
+                    <button class="theme-btn" data-theme="light" onclick="setTheme('light')">☀ Terang</button>
+                    <button class="theme-btn" data-theme="sepia" onclick="setTheme('sepia')">📜 Sepia</button>
+                    <button class="theme-btn" data-theme="dark" onclick="setTheme('dark')">🌙 Gelap</button>
+                </div>
             </div>
-        </div>
-        <div class="settings-row">
-            <label>Swipe</label>
-            <div class="btn-group">
-                <button class="t-btn" id="swipeToggleBtn" onclick="toggleSwipe()">👆 Aktif</button>
+            <div class="settings-row">
+                <label>Mode</label>
+                <div class="btn-group">
+                    <button class="t-btn" id="flowBtn" onclick="toggleFlow()">📄 Scroll</button>
+                    <a class="t-btn" id="downloadBtn" title="Download">⬇ Unduh</a>
+                </div>
             </div>
-            <span id="swipeStatusLabel" style="font-size:11px;color:var(--muted);margin-left:4px;align-self:center;"></span>
-        </div>
-        <div class="settings-row">
-            <label>Redup</label>
-            <input type="range" id="brightnessSlider" min="0" max="80" value="0" oninput="setBrightness(this.value)">
-        </div>
-        <div class="settings-row">
-            <label>Spasi</label>
-            <input type="range" id="lineSpacingSlider" min="1.0" max="3.0" step="0.1" value="1.6"
-                   oninput="setLineSpacing(parseFloat(this.value))">
-            <span id="lineSpacingVal" class="slider-val">1.6</span>
-        </div>
-        <div class="settings-row">
-            <label>Margin</label>
-            <input type="range" id="marginSlider" min="0" max="10" step="1" value="4"
-                   oninput="setMargin(parseInt(this.value))">
-            <span id="marginVal" class="slider-val">4%</span>
-        </div>
-        <div class="settings-row">
-            <label>Translate</label>
-            <div class="btn-group">
-                <button class="t-btn" onclick="openTranslatePanel(_tlSelectedText || '')">🌐 Teks</button>
-                <button class="t-btn" onclick="translateFullPage()">🌐 Page</button>
-                <button class="t-btn" onclick="revertTranslate()">↶ Undo</button>
+            <div class="settings-row">
+                <label>Swipe</label>
+                <div class="btn-group">
+                    <button class="t-btn" id="swipeToggleBtn" onclick="toggleSwipe()">👆 Aktif</button>
+                </div>
+                <span id="swipeStatusLabel" style="font-size:11px;color:var(--muted);margin-left:4px;align-self:center;"></span>
             </div>
-        </div>
-        <div class="settings-row">
-            <label>Bahasa</label>
-            <select id="fullPageLang" onchange="updateFullPageLang()">
-                <option value="id">ID</option>
-                <option value="en">EN</option>
-                <option value="ms">MS</option>
-                <option value="ar">AR</option>
-                <option value="zh-CN">ZH-CN</option>
-                <option value="zh-TW">ZH-TW</option>
-                <option value="ja">JA</option>
-                <option value="ko">KO</option>
-                <option value="fr">FR</option>
-                <option value="de">DE</option>
-                <option value="es">ES</option>
-                <option value="pt">PT</option>
-                <option value="ru">RU</option>
-                <option value="nl">NL</option>
-                <option value="it">IT</option>
-                <option value="tr">TR</option>
-                <option value="th">TH</option>
-                <option value="vi">VI</option>
-                <option value="pl">PL</option>
-                <option value="hi">HI</option>
-                <option value="sv">SV</option>
-                <option value="da">DA</option>
-                <option value="fi">FI</option>
-                <option value="no">NO</option>
-                <option value="cs">CS</option>
-                <option value="ro">RO</option>
-                <option value="hu">HU</option>
-                <option value="sk">SK</option>
-                <option value="bg">BG</option>
-                <option value="uk">UK</option>
-                <option value="hr">HR</option>
-                <option value="lt">LT</option>
-                <option value="lv">LV</option>
-                <option value="et">ET</option>
-                <option value="sl">SL</option>
-                <option value="sq">SQ</option>
-                <option value="mk">MK</option>
-            </select>
-        </div>
-        <div class="settings-row actions-row">
-            <button class="action-btn" onclick="openBookmarks()">🔖 Bookmark</button>
-            <button class="action-btn" onclick="openStats()">📊 Statistik</button>
+            <div class="settings-row">
+                <label>Redup</label>
+                <input type="range" id="brightnessSlider" min="0" max="80" value="0" oninput="setBrightness(this.value)">
+            </div>
+            <div class="settings-row">
+                <label>Spasi</label>
+                <input type="range" id="lineSpacingSlider" min="1.0" max="3.0" step="0.1" value="1.6"
+                       oninput="setLineSpacing(parseFloat(this.value))">
+                <span id="lineSpacingVal" class="slider-val">1.6</span>
+            </div>
+            <div class="settings-row">
+                <label>Margin</label>
+                <input type="range" id="marginSlider" min="0" max="10" step="1" value="4"
+                       oninput="setMargin(parseInt(this.value))">
+                <span id="marginVal" class="slider-val">4%</span>
+            </div>
+            <div class="settings-row">
+                <label>Translate</label>
+                <div class="btn-group">
+                    <button class="t-btn" onclick="openTranslatePanel(_tlSelectedText || '')">🌐 Teks</button>
+                    <button class="t-btn" onclick="translateFullPage()">🌐 Page</button>
+                    <button class="t-btn" onclick="revertTranslate()">↶ Undo</button>
+                </div>
+            </div>
+            <div class="settings-row">
+                <label>Bahasa</label>
+                <select id="fullPageLang" onchange="updateFullPageLang()">
+                    <option value="id">ID</option>
+                    <option value="en">EN</option>
+                    <option value="ms">MS</option>
+                    <option value="ar">AR</option>
+                    <option value="zh-CN">ZH-CN</option>
+                    <option value="zh-TW">ZH-TW</option>
+                    <option value="ja">JA</option>
+                    <option value="ko">KO</option>
+                    <option value="fr">FR</option>
+                    <option value="de">DE</option>
+                    <option value="es">ES</option>
+                    <option value="pt">PT</option>
+                    <option value="ru">RU</option>
+                    <option value="nl">NL</option>
+                    <option value="it">IT</option>
+                    <option value="tr">TR</option>
+                    <option value="th">TH</option>
+                    <option value="vi">VI</option>
+                    <option value="pl">PL</option>
+                    <option value="hi">HI</option>
+                    <option value="sv">SV</option>
+                    <option value="da">DA</option>
+                    <option value="fi">FI</option>
+                    <option value="no">NO</option>
+                    <option value="cs">CS</option>
+                    <option value="ro">RO</option>
+                    <option value="hu">HU</option>
+                    <option value="sk">SK</option>
+                    <option value="bg">BG</option>
+                    <option value="uk">UK</option>
+                    <option value="hr">HR</option>
+                    <option value="lt">LT</option>
+                    <option value="lv">LV</option>
+                    <option value="et">ET</option>
+                    <option value="sl">SL</option>
+                    <option value="sq">SQ</option>
+                    <option value="mk">MK</option>
+                </select>
+            </div>
+            <div class="settings-row actions-row" style="justify-content: center;">
+                <button class="action-btn" onclick="openBookmarks()">🔖 Bookmark</button>
+                <button class="action-btn" onclick="openStats()">📊 Statistik</button>
+            </div>
         </div>
     </div>
 

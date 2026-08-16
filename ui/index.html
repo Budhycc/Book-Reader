@@ -10,73 +10,92 @@
 </head>
 <body>
 
-<header>
-    <div class="header-row1">
-        <h2>📚 EPUB</h2>
-        <div class="search-wrap">
-            <input type="text" id="searchBook" placeholder="Cari judul atau penulis..." autocomplete="off" spellcheck="false">
-            <button id="clearBtn" title="Hapus">✕</button>
+<div id="app-layout">
+    <!-- Sidebar -->
+    <aside class="app-sidebar">
+        <div class="sidebar-logo">
+            <h2>📚 EPUB</h2>
         </div>
-        <a href="upload.html" class="btn-upload" title="Upload Buku">
-            📤 <span class="btn-upload-text">Upload</span>
-        </a>
-    </div>
-    <div class="header-row2">
-        <div class="header-row2-left">
-            <span class="ctrl-label">Urutkan</span>
-            <div class="ctrl-select">
-                <select id="sortSelect">
-                    <option value="az">A → Z</option>
-                    <option value="za">Z → A</option>
-                    <option value="recent">Terakhir Dibaca</option>
-                    <option value="progress">Progress</option>
-                </select>
+        <nav class="sidebar-nav">
+            <a href="#" class="nav-item active">🏠 Library</a>
+            <a href="upload.html" class="nav-item">📤 Upload Book</a>
+        </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="app-main">
+        <header class="top-nav">
+            <div class="search-wrap">
+                <input type="text" id="searchBook" placeholder="Search title or author..." autocomplete="off" spellcheck="false">
+                <button id="clearBtn" title="Clear">✕</button>
             </div>
-            <div class="ctrl-divider"></div>
-            <span class="ctrl-label">Filter</span>
-            <div class="ctrl-select">
-                <select id="filterSelect">
-                    <option value="all">Semua</option>
-                    <option value="reading">Sedang Dibaca</option>
-                    <option value="unread">Belum Dibaca</option>
-                    <option value="done">Selesai (≥95%)</option>
-                </select>
+        </header>
+
+        <!-- Search dropdown -->
+        <div id="searchDropdown"></div>
+
+        <div class="container">
+            
+            <!-- Hero Section for Continue Reading -->
+            <section id="heroSection" class="hero-section" style="display: none;">
+                <!-- Injected by JS -->
+            </section>
+
+            <!-- Library Toolbar -->
+            <div class="library-toolbar">
+                <div class="toolbar-left">
+                    <span class="ctrl-label">Sort</span>
+                    <div class="ctrl-select">
+                        <select id="sortSelect">
+                            <option value="recent">Recently Read</option>
+                            <option value="az">A → Z</option>
+                            <option value="za">Z → A</option>
+                            <option value="progress">Progress</option>
+                        </select>
+                    </div>
+                    <div class="ctrl-divider"></div>
+                    <span class="ctrl-label">Filter</span>
+                    <div class="ctrl-select">
+                        <select id="filterSelect">
+                            <option value="all">All</option>
+                            <option value="reading">Reading</option>
+                            <option value="unread">Unread</option>
+                            <option value="done">Finished</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="view-btns">
+                    <button id="viewGrid" onclick="setView('grid')" title="Grid">⊞</button>
+                    <button id="viewList" onclick="setView('list')" title="List">≡</button>
+                </div>
+            </div>
+
+            <!-- Library Grid -->
+            <div id="library" class="grid">
+                <!-- Books loaded here by JS -->
+            </div>
+            
+            <div id="emptyMsg" style="display:none">
+                <p>😔 No books found.</p>
+            </div>
+
+            <!-- Pagination -->
+            <div id="pagination" style="display:none;">
+                <button id="prevBtn" class="page-btn" onclick="changePage(-1)">← Prev</button>
+                <span id="pageInfo"></span>
+                <button id="nextBtn" class="page-btn" onclick="changePage(1)">Next →</button>
+                <div class="goto-wrap">
+                    <label for="gotoInput">Page</label>
+                    <input type="number" id="gotoInput" min="1" value="1">
+                    <button class="page-btn" onclick="gotoPage()">→</button>
+                </div>
+                <div id="perPageWrap">
+                    <label for="perPageInput">Show:</label>
+                    <input type="number" id="perPageInput" min="10" max="100" step="10" value="10">
+                </div>
             </div>
         </div>
-        <div class="view-btns">
-            <button id="viewGrid" onclick="setView('grid')" title="Grid">⊞</button>
-            <button id="viewList" onclick="setView('list')" title="List">≡</button>
-        </div>
-    </div>
-</header>
-
-<div class="container">
-    <!-- Search dropdown -->
-    <div id="searchDropdown"></div>
-
-    <div id="library" class="grid">
-        <!-- Buku-buku akan dimuat di sini oleh JS -->
-    </div>
-    <div id="emptyMsg" style="display:none">
-        <p>😔 Tidak ada buku ditemukan.</p>
-    </div>
-</div>
-
-<!-- Pagination -->
-<div id="pagination" style="display:none;">
-    <button id="prevBtn" class="page-btn" onclick="changePage(-1)">← Prev</button>
-    <span id="pageInfo"></span>
-    <button id="nextBtn" class="page-btn" onclick="changePage(1)">Next →</button>
-    <div class="goto-wrap">
-        <label for="gotoInput">Ke hal.</label>
-        <input type="number" id="gotoInput" min="1" value="1">
-        <button class="page-btn" onclick="gotoPage()">→</button>
-    </div>
-    <div id="perPageWrap">
-        <label for="perPageInput">Tampilkan:</label>
-        <input type="number" id="perPageInput" min="10" max="100" step="10" value="10">
-        <span>per halaman</span>
-    </div>
+    </main>
 </div>
 
 <script src="js/index.js"></script>

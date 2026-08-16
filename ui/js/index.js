@@ -429,6 +429,14 @@ function renderPage(page, rawQuery) {
     const totalPages = Math.max(1, Math.ceil(filteredBooks.length / booksPerPage))
     currentPage = Math.min(Math.max(1, page), totalPages)
 
+    // Render Hero Section
+    if (!nq && currentFilter === "all" && currentPage === 1) {
+        renderHeroSection(allBooks);
+    } else {
+        const heroSection = document.getElementById("heroSection");
+        if (heroSection) heroSection.style.display = "none";
+    }
+
     const start = (currentPage - 1) * booksPerPage
     const end   = start + booksPerPage
 
@@ -579,6 +587,72 @@ window.setView = function(mode) {
     localStorage.setItem(STORAGE_KEY_VIEW, mode)
     document.getElementById("viewGrid").classList.toggle("active", mode === "grid")
     document.getElementById("viewList").classList.toggle("active", mode === "list")
+}
+
+/* ────────────────────────────────────────────
+   HERO SECTION (Continue Reading)
+──────────────────────────────────────────── */
+function renderHeroSection(allBooks) {
+    const heroSection = document.getElementById("heroSection");
+    if (!heroSection) return;
+
+    let mostRecentBook = null;
+    let latestTs = "";
+    
+    allBooks.forEach(el => {
+        const url = el.dataset.book;
+        const ts = getLastRead(url) || "";
+        const pct = getProgress(url);
+        if (ts > latestTs && pct !== null && pct < 95) {
+            latestTs = ts;
+            mostRecentBook = el;
+        }
+    });
+
+    if (!mostRecentBook) {
+        heroSection.style.display = "none";
+        return;
+    }
+
+    heroSection.style.display = "flex";
+    
+    const url = mostRecentBook.dataset.book;
+    const title = mostRecentBook.dataset.originalTitle || mostRecentBook.dataset.title;
+    const author = mostRecentBook.dataset.originalAuthor || "";
+    const pct = getProgress(url) || 0;
+    const coverSrc = getCached(url) || "img/image.png";
+
+    heroSection.innerHTML = `
+        <img class="hero-cover" src="${escHtml(coverSrc)}" alt="">
+        <div class="hero-info">
+            <div class="hero-badge">Continue Reading</div>
+            <h3 class="hero-title">${escHtml(title)}</h3>
+            <div class="hero-author">${escHtml(author)}</div>
+            <div class="hero-progress">
+                <div class="hero-progress-bar">
+                    <div class="hero-progress-fill" style="width: ${pct}%"></div>
+                </div>
+                <div class="hero-progress-text">${pct}% Complete</div>
+            </div>
+            <a href="reader.html?book=${encodeURIComponent(url)}" class="btn-primary">
+                ▶ Resume Reading
+            </a>
+        </div>
+    `;
+    
+    if (!getCached(url)) {
+        fetch(`../get-cover.php?book=${encodeURIComponent(url)}`)
+            .then(r => r.blob())
+            .then(blob => new Promise((res, rej) => {
+                const fr = new FileReader(); fr.onloadend = () => res(fr.result); fr.onerror = rej; fr.readAsDataURL(blob)
+            }))
+            .then(dataUrl => {
+                setCached(url, dataUrl);
+                const imgEl = heroSection.querySelector(".hero-cover");
+                if (imgEl) imgEl.src = dataUrl;
+            })
+            .catch(() => {});
+    }
 }
 
 window.changePage = changePage;
