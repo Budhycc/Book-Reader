@@ -350,7 +350,9 @@ function isScrollMode() {
 }
 
 function syncScrollFooterVisibility() {
-    document.getElementById("scrollFooter").classList.toggle("sf-visible", isScrollMode());
+    const isScroll = isScrollMode();
+    document.getElementById("scrollFooter").classList.toggle("sf-visible", isScroll);
+    document.body.classList.toggle("scroll-mode", isScroll);
 }
 
 function labelForSection(sec) {
@@ -478,11 +480,16 @@ function toggleFlow() {
     flowMode = flowMode === "paginated" ? "scrolled-doc" : "paginated";
     localStorage.setItem("reader-flow", flowMode);
     const cfi = rendition.currentLocation()?.start?.cfi;
-    rendition.flow(flowMode);
-    if (cfi) rendition.display(cfi).catch(() => {});
+    
     updateFlowBtn();
     syncScrollFooterVisibility();
-    if (isScrollMode()) updateScrollFooterLabels();
+    
+    rendition.flow(flowMode);
+    setTimeout(() => {
+        rendition.resize();
+        if (cfi) rendition.display(cfi).catch(() => {});
+        if (isScrollMode()) updateScrollFooterLabels();
+    }, 100);
 }
 function updateFlowBtn() {
     document.getElementById("flowBtn").textContent =

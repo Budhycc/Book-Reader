@@ -101,7 +101,7 @@ html, body {
   border-radius: 99px;
   display: flex; align-items: center;
   padding: 8px 16px;
-  height: 56px;
+  min-height: 56px;
   gap: 12px;
   box-shadow: 0 10px 40px -10px rgba(0,0,0,0.6);
   z-index: 100;
@@ -111,6 +111,9 @@ html, body {
   transform: translate(-50%, 150%);
   opacity: 0;
   pointer-events: none;
+}
+.scroll-mode .floating-toolbar {
+  bottom: calc(var(--sf-h) + 32px);
 }
 .toolbar-center {
   display: flex;
@@ -169,6 +172,9 @@ html, body {
   opacity: 1;
   pointer-events: auto;
   transform: translateY(0);
+}
+.scroll-mode #uiToggleBtn {
+  bottom: calc(var(--sf-h) + 24px);
 }
 #uiToggleBtn:hover {
   color: var(--text);
@@ -395,9 +401,11 @@ input[type=range] {
   z-index: 1001; display: flex; flex-direction: column;
   transform: translateX(100%);
   transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.overlay-panel.open { 
+  transform: translateX(0); 
   box-shadow: -8px 0 40px rgba(0,0,0,0.5);
 }
-.overlay-panel.open { transform: translateX(0); }
 
 .overlay-header {
   display: flex; align-items: center; justify-content: space-between;
@@ -639,6 +647,9 @@ input[type=range] {
     bottom: 24px;
     border-radius: 20px; /* More rectangular to fit wrapped rows nicely */
     z-index: 1005; /* Above scroll footer */
+  }
+  .scroll-mode .floating-toolbar {
+    bottom: calc(var(--sf-h) + 24px);
   }
   .toolbar-center { display: none; } /* Hide title on small screens */
   .floating-toolbar .t-btn { padding: 4px; width: 34px; height: 34px; font-size: 15px; }
